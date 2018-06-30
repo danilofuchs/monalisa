@@ -85,6 +85,8 @@ def detectarFaces(image, face_cascade) :
 
     #Encontrou faces?
     if len(faces) > 0 : 
+        if not pygame.mixer.music.get_busy():
+            tocarSom('audio/oi_gato.mp3')
         return faces
     else :
         raise LookupError('No face found')
