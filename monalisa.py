@@ -13,7 +13,9 @@ import time
 from pyfirmata import Arduino, util
 import serial
 
-captureRes = (320, 240)
+import pygame
+
+captureRes = (400, 300)
 
 #Load a cascade file for detecting faces
 face_cascade = cv2.CascadeClassifier('facial_recognition_model.xml')
@@ -44,7 +46,7 @@ servo2 = board.get_pin('d:{0}:s'.format(servoPin2))
 
 #Limites de ângulo do servo (min, max)
 # min = olho totalmente na esquerda, max = direita
-angleLimits = (0, 60)
+angleLimits = (65, 115)
 
 def setAngle(servo, angle):
     print('Servo em {0}'.format(int(angle)))
@@ -121,73 +123,62 @@ def moveBasedOnFaces(faces, image, angleLimits, servoArray) :
         maxAngulo = angleLimits[1]
 
         angulo = min(max(maxAngulo - (maxAngulo - minAngulo) * posicaoRelativaFoto, angleLimits[0]), angleLimits[1])
-        
-        #print('Movido para o angulo {0:.1f}graus'.format(angulo))
-        '''
-        if angulo > 90 :
-            servoArray[0].write(120)
-        else :
-            servoArray[0].write(60)
-        time.sleep(0.01)'''
 
-        #servoArray[0].write(int(angulo))
         setAngle(servoArray[0], angulo)
-        #setAngle(servoArray[1], angulo)
+        setAngle(servoArray[1], angulo)
+
         anguloServosRelativo = (posicaoRelativaFoto, posicaoRelativaFoto)
 
     return anguloServosRelativo
 
-for i in range(0, 90) :
-    setAngle(servo1, i*2) 
-    setAngle(servo2, i*2) 
-    time.sleep(0.01) 
+def tocarSom(nomeArquivo) :
+    pygame.mixer.music.load(nomeArquivo)
+    pygame.mixer.music.play()
 
-for i in range(90, 0, -1) :
-    setAngle(servo1, i*2) 
-    setAngle(servo2, i*2) 
-    time.sleep(0.01) 
+def initialSound() :
+    tocarSom('audio/start_race.mp3')
 
-if True :
-    start = time.time()
+video_capture.set(cv2.CAP_PROP_FRAME_WIDTH, captureRes[0])
+video_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, captureRes[1])
 
-    video_capture.set(cv2.CAP_PROP_FRAME_WIDTH, captureRes[0])
-    video_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, captureRes[1])
+initialSound()
+for i in range(angleLimits[0], angleLimits[1]) :
+    setAngle(servo1, i) 
+    setAngle(servo2, i) 
+    time.sleep(0.005) 
+for i in range(angleLimits[1], angleLimits[0], -1) :
+    setAngle(servo1, i) 
+    setAngle(servo2, i) 
+    time.sleep(0.005) 
+start = time.time()
+i = 0
 
-    i = 0
-    while time.time() - start < 240 and video_capture.isOpened():
-        
-        ret, frame = video_capture.read()
-
-        cv2.resize(frame, (200,150))
-
-        thereAreFacesInImage = True
-
-        try :
-            faces = detectFaces(frame, face_cascade)
-        except LookupError :
-            thereAreFacesInImage = False
-
-        if thereAreFacesInImage :
-            anguloServosRelativo = moveBasedOnFaces(faces, frame, angleLimits, [servo1, servo2])
-            #setAngle(servo2, anguloServosRelativo[0] * 100) 
-            angleLines = []
-
-            for angle in anguloServosRelativo :
-                rectangle = (int((frame.shape[0]) * angle), 0, 1, frame.shape[1])
-                            #(x, y, w, h)
-                angleLines.append(rectangle)
-
-            drawResult(frame, faces, angleLines)
-
-        else :
-            drawResult(frame, np.array([(0,0,0,0)]), np.array([(0,0,0,0)]))
-        
-        i = i + 1
-        current = time.time()
-        print('Processed {0} frames in {1:.2f}s. Avg {2:.2f}fps\r'.format(i, (current-start), i/(current-start), end='\r'))
-        
-
-    video_capture.release()
-    #out.release()
-    end = time.time()
-    print('Elapsed time: ' + str(end-start) + 's')
+while time.time() - start < 240 and video_capture.isOpened():
+    
+    ret, frame = video_capture.read()
+    cv2.resize(frame, (320,240))
+    thereAreFacesInImage = True
+    try :
+        faces = detectFaces(frame, face_cascade)
+    except LookupError :
+        thereAreFacesInImage = False
+    if thereAreFacesInImage :
+        anguloServosRelativo = moveBasedOnFaces(faces, frame, angleLimits, [servo1, servo2])
+        #setAngle(servo2, anguloServosRelativo[0] * 100) 
+        angleLines = []
+        for angle in anguloServosRelativo :
+            rectangle = (int((frame.shape[0]) * angle), 0, 1, frame.shape[1])
+                        #(x, y, w, h)
+            angleLines.append(rectangle)
+        drawResult(frame, faces, angleLines)
+    else :
+        drawResult(frame, np.array([(0,0,0,0)]), np.array([(0,0,0,0)]))
+    
+    i = i + 1
+    current = time.time()
+    print('Processed {0} frames in {1:.2f}s. Avg {2:.2f}fps\r'.format(i, (current-start), i/(current-start), end='\r'))
+    
+video_capture.release()
+#out.release()
+end = time.time()
+print('Elapsed time: ' + str(end-start) + 's')
