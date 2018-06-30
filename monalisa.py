@@ -16,6 +16,7 @@ import serial
 import pygame
 
 anguloAtualServos = []
+tempoUltimoComandoServos = []
 limitesAngulo = ()
 servos = []
 resolucaoCaptura = ()
@@ -26,6 +27,8 @@ board = 0
 def globals() :
     global anguloAtualServos
     anguloAtualServos = [0, 0]
+    global tempoUltimoComandoServos
+    tempoUltimoComandoServos = [0, 0]
     #Limites de ângulo do servo (min, max)
     # min = olho totalmente na esquerda, max = direi
     global limitesAngulo
@@ -54,7 +57,7 @@ def globals() :
 def initArduino() :
     global board
     sucessoArduino = False
-    for i in range (0,10) :
+    for i in range (0, 10) :
         try:
             board = Arduino('/dev/ttyUSB{0}'.format(i))
             sucessoArduino = True
@@ -70,6 +73,8 @@ def initArduino() :
 def setAngulo(index, angulo):
     #print('Servo em {0}'.format(int(angulo)))
     servos[index].write(int(angulo))
+    anguloAtualServos[index] = int(angulo)
+    tempoUltimoComandoServos[index] = time.time()
 
 def detectarFaces(image, face_cascade) :
 
@@ -117,6 +122,31 @@ def desenharResultado(image, faces, linhasServos) :
     if cv2.waitKey(1) & 0xFF == ord('q'):
         exit()
 
+def limitarValor(valor, intervalo) :
+    return max(min(valor, intervalo[1]), intervalo[0])
+
+def limiteMovimento(servoIndex) :
+    amplitudeServos = limitesAngulo[1] - limitesAngulo[0]
+    limite = 0.03 * amplitudeServos
+    return limite
+
+def seguirFace(servoIndex, face, image) :
+    (x, y, w, h) = face
+
+    posicaoMedia = x + (w/2)
+    posicaoRelativaFoto = posicaoMedia / (image.shape[0] * 1.0)
+
+    minAngulo = limitesAngulo[0]
+    maxAngulo = limitesAngulo[1]
+
+    angulo = limitarValor(maxAngulo - (maxAngulo - minAngulo) * posicaoRelativaFoto, limitesAngulo)
+    distanciaMovimento = abs(angulo - anguloAtualServos[servoIndex])
+    if distanciaMovimento > limiteMovimento :
+        angulo = limiteMovimento
+
+    setAngulo(servoIndex, angulo)
+
+    return posicaoRelativaFoto
 
 def moverBaseadoNasFaces(faces, image) :
     anguloServosRelativo = (0, 0)
@@ -126,25 +156,22 @@ def moverBaseadoNasFaces(faces, image) :
 
     i = 0
     for (x, y, w, h) in faces:
-        facesDecrescente[i] = findBiggestFace(faces, facesParaIgnorar)
+        facesDecrescente[i] = acharMaiorFace(faces, facesParaIgnorar)
         facesParaIgnorar.append(facesDecrescente[i])
         i += 1
 
-    (x, y, w, h) = facesDecrescente[0]
-    if x != 0 :
+    numeroFaces = facesDecrescente.shape[0]
 
-        posicaoMedia = x + (w/2)
-        posicaoRelativaFoto = posicaoMedia / (image.shape[0] * 1.0)
+    anguloServosRelativo = [0, 0]
 
-        minAngulo = limitesAngulo[0]
-        maxAngulo = limitesAngulo[1]
-
-        angulo = min(max(maxAngulo - (maxAngulo - minAngulo) * posicaoRelativaFoto, minAngulo), maxAngulo)
-
-        setAngulo(0, angulo)
-        setAngulo(1, angulo)
-
-        anguloServosRelativo = (posicaoRelativaFoto, posicaoRelativaFoto)
+    if numeroFaces == 0 :
+        a = 0
+    elif numeroFaces == 1 :
+        anguloServosRelativo[0] = seguirFace(0, facesDecrescente[0], image)
+        anguloServosRelativo[1] = seguirFace(1, facesDecrescente[0], image)
+    elif numeroFaces == 2 :
+        anguloServosRelativo[0] = seguirFace(0, facesDecrescente[0], image)
+        anguloServosRelativo[1] = seguirFace(1, facesDecrescente[1], image)
 
     return anguloServosRelativo
 
