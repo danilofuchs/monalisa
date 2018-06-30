@@ -1,0 +1,100 @@
+import cv2
+import numpy
+import time
+
+cv2.setNumThreads(4)
+
+DEBUG_CAMERA = True
+DEBUG_IMAGE = False
+DEBUG_VIDEO = False
+
+def detectFace(image, save = False, show = False) :
+
+    #Load a cascade file for detecting faces
+    face_cascade = cv2.CascadeClassifier('facial_recognition_model.xml')
+
+    #Convert to grayscale
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+    #Look for faces in the image using the loaded cascade file
+    faces = face_cascade.detectMultiScale(gray, 1.1, 5)
+
+    #print ("Found "+str(len(faces))+" face(s)")
+
+
+    #Draw a rectangle around every found face
+    for (x,y,w,h) in faces:
+        cv2.rectangle(image,(x,y),(x+w,y+h),(255,255,0),2)
+    
+    #Save the result image
+    if save :
+        cv2.imwrite('result.jpg',image)
+    if show :
+        cv2.imshow('result', image)
+    
+    return image
+
+
+if DEBUG_CAMERA :
+    start = time.time()
+    video_capture = cv2.VideoCapture(0)
+    #video_capture.set(cv2.CAP_PROP_BRIGHTNESS, 1)
+    video_capture.set(cv2.CAP_PROP_FRAME_WIDTH, 100)
+    video_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 80)
+    fourcc = cv2.VideoWriter_fourcc(*'XVID')
+    out = cv2.VideoWriter('outputCamera.avi',fourcc, 1.0, (640,360))
+
+    i = 0
+    while time.time() - start < 60 and video_capture.isOpened():
+        ret, frame = video_capture.read()
+        print("leu")
+        image = detectFace(frame, save=False, show=True)
+        print("detectou")        
+	    #cv2.imshow('result', image)
+        #cv2.imwrite('output/result{0}.jpg'.format(i),image)
+        #out.write(image)
+        i = i + 1
+        current = time.time()
+        print('Processed {0} frames in {1:.2f}s. Avg {2:.2f}fps'.format(i, (current-start), i/(current-start), end='\r'))
+        
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+e.sleep(5);
+    video_capture.release()
+    out.release()
+    end = time.time()
+    print('Elapsed time: ' + str(end-start) + 's')
+
+elif DEBUG_IMAGE :
+    start = time.time()
+    try :
+        image = cv2.imread('samples/image3.jpg', flags=cv2.IMREAD_COLOR)
+        detectFace(image, save=True, show=True)
+    except cv2.error as e :
+        print(e)
+    end = time.time()
+    print('Elapsed time: ' + str(end-start) + 's')
+
+elif DEBUG_VIDEO :
+    print('Detecting faces in video')
+    start = time.time()
+    capture = cv2.VideoCapture('samples/video1.avi')
+    fourcc = cv2.VideoWriter_fourcc(*'XVID')
+    out = cv2.VideoWriter('output.avi',fourcc, 30.0, (640,360))
+
+    i = 0
+    while(capture.isOpened()):
+        # Capture frame-by-frame
+        ret, frame = capture.read()
+        image = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5, interpolation=cv2.INTER_LANCZOS4)
+        image = detectFace(image, save=False)
+        out.write(image)
+        i = i + 1
+        current = time.time()
+        print('Processed {0} frames in {1:.2f}s. Avg {2:.2f}fps'.format(i, (current-start), i/(current-start), end='\r'))
+    cap.release()
+    out.release()
+    end = time.time()
+    print('Detection complete. Check output.avi')
+    print('Elapsed time: {0}s ({1:.2f}s per frame = {2:.2f}fps)'.format(end-start, (end-start)/i, i/(end-start)))
+
