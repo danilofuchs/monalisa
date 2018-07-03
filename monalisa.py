@@ -9,6 +9,7 @@ import cv2
 import numpy as np
 
 import time
+from random import randint
 
 from pyfirmata import Arduino, util
 import serial
@@ -16,11 +17,16 @@ import serial
 import pygame
 
 
+'''      MODOS DIFERENTES DE REAGIR            ''
+''  0 - Seguir apenas 1 pessoa                 ''
+''  1 - Seguir 2 pessoas cada uma em 1 olho    ''
+''  2 - Esconder os olhos - Não seguir ninguém ''
+''  3 - Louca                                  '''
 
 limiteTempo = 0
 anguloAtualServos = []
 tempoUltimoComandoServos = []
-limitesAngulo = ()
+limitesAngulo = []
 velocidadeMaximaServos = 0
 servos = []
 resolucaoCaptura = ()
@@ -38,7 +44,9 @@ def globals() :
     #Limites de ângulo do servo (min, max)
     # min = olho totalmente na esquerda, max = direi
     global limitesAngulo
-    limitesAngulo = (65, 115)
+    limitesAngulo.append((65, 115))
+    #limitesAngulo.append((65, 115))
+    limitesAngulo.append((45, 80))
     #Velocidade máxima de reotação em graus / segundo
     global velocidadeMaximaServos
     velocidadeMaximaServos = 40
@@ -85,6 +93,14 @@ def setAngulo(index, angulo):
     servos[index].write(angulo)
     anguloAtualServos[index] = int(angulo)
     tempoUltimoComandoServos[index] = time.time()
+    print('Servo {0}: pos {1}'.format(index, angulo))
+    
+def tocarSom(nomeArquivo) :
+    pygame.mixer.music.load(nomeArquivo)
+    pygame.mixer.music.play()
+
+def somInicial() :
+    tocarSom('audio/start_race.mp3')
 
 def detectarFaces(image, face_cascade) :
 
@@ -155,10 +171,10 @@ def seguirFace(servoIndex, face, image) :
     posicaoMedia = x + (w/2)
     posicaoRelativaFoto = posicaoMedia / (image.shape[0] * 1.0)
 
-    minAngulo = limitesAngulo[0]
-    maxAngulo = limitesAngulo[1]
+    minAngulo = limitesAngulo[servoIndex][0]
+    maxAngulo = limitesAngulo[servoIndex][1]
 
-    angulo = limitarValor(maxAngulo - (maxAngulo - minAngulo) * posicaoRelativaFoto, limitesAngulo)
+    angulo = limitarValor(maxAngulo - (maxAngulo - minAngulo) * posicaoRelativaFoto, limitesAngulo[servoIndex])
     distanciaMovimento = angulo - anguloAtualServos[servoIndex]
     limite = limiteMovimento(servoIndex)
     if distanciaMovimento > limite :
@@ -169,6 +185,21 @@ def seguirFace(servoIndex, face, image) :
     setAngulo(servoIndex, angulo)
 
     return posicaoRelativaFoto
+
+def modoLouco() :
+    tocarSom('/audio/nervosa1.mp3')
+    amplitudeServo0 = limitesAngulo[0][1] - limitesAngulo[0][0]
+    amplitudeServo1 = limitesAngulo[1][1] - limitesAngulo[1][0]
+
+    for i in range(0, 30) :
+        setAngulo(0, (i * (1/30) * amplitudeServo0 + limitesAngulo[0][0]))
+        setAngulo(0, (i * (1/30) * amplitudeServo1 + limitesAngulo[1][0]))
+        time.sleep(0.01)
+    for i in range(30, 0, -1) :
+        setAngulo(0, (i * (1/30) * amplitudeServo0 + limitesAngulo[0][0]))
+        setAngulo(0, (i * (1/30) * amplitudeServo1 + limitesAngulo[1][0]))
+        time.sleep(0.01)
+    
 
 def moverBaseadoNasFaces(faces, image) :
     anguloServosRelativo = (0, 0)
@@ -197,13 +228,6 @@ def moverBaseadoNasFaces(faces, image) :
 
     return anguloServosRelativo
 
-def tocarSom(nomeArquivo) :
-    pygame.mixer.music.load(nomeArquivo)
-    pygame.mixer.music.play()
-
-def somInicial() :
-    tocarSom('audio/start_race.mp3')
-
 ''' INICIO '''
 
 pygame.init()
@@ -212,14 +236,17 @@ globals()
 
 somInicial()
 
-for i in range(limitesAngulo[0], limitesAngulo[1]) :
-    setAngulo(0, i) 
-    setAngulo(1, i) 
-    time.sleep(0.005) 
-for i in range(limitesAngulo[1], limitesAngulo[0], -1) :
-    setAngulo(0, i) 
-    setAngulo(1, i) 
-    time.sleep(0.005) 
+amplitudeServo0 = limitesAngulo[0][1] - limitesAngulo[0][0]
+amplitudeServo1 = limitesAngulo[1][1] - limitesAngulo[1][0]
+for i in range(0, 30) :
+    setAngulo(0, (i * (1/30) * amplitudeServo0 + limitesAngulo[0][0]))
+    setAngulo(0, (i * (1/30) * amplitudeServo1 + limitesAngulo[1][0]))
+    time.sleep(0.005)
+for i in range(30, 0, -1) :
+    setAngulo(0, (i * (1/30) * amplitudeServo0 + limitesAngulo[0][0]))
+    setAngulo(0, (i * (1/30) * amplitudeServo1 + limitesAngulo[1][0]))
+    time.sleep(0.005)
+
 start = time.time()
 i = 0
 
