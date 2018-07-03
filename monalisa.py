@@ -12,20 +12,20 @@ import time
 
 from pyfirmata import Arduino, util
 import serial
-from usb.core import find as finddev
 
 import pygame
+
+
 
 limiteTempo = 0
 anguloAtualServos = []
 tempoUltimoComandoServos = []
 limitesAngulo = ()
+velocidadeMaximaServos = 0
 servos = []
 resolucaoCaptura = ()
 capturaVideo = 0
 cameraIndex = 0
-arduinoUSBVendorID = 0
-arduinoUSBProductID = 0
 board = 0
 
 def globals() :
@@ -39,12 +39,9 @@ def globals() :
     # min = olho totalmente na esquerda, max = direi
     global limitesAngulo
     limitesAngulo = (65, 115)
-
-    global arduinoUSBVendorID
-    global arduinoUSBProductID
-    ''' ALTERAR PARA A CAMERA UTILIZADA. USE O COMANDO usb-devices PARA DESCOBRIR '''
-    arduinoUSBVendorID = 0x040c
-    arduinoUSBProductID = 0x6001
+    #Velocidade máxima de reotação em graus / segundo
+    global velocidadeMaximaServos
+    velocidadeMaximaServos = 40
 
     servoPin1 = 8
     servoPin2 = 9
@@ -84,7 +81,8 @@ def initArduino() :
     
 def setAngulo(index, angulo):
     #print('Servo em {0}'.format(int(angulo)))
-    servos[index].write(int(angulo))
+    angulo = int(angulo)
+    servos[index].write(angulo)
     anguloAtualServos[index] = int(angulo)
     tempoUltimoComandoServos[index] = time.time()
 
@@ -140,9 +138,16 @@ def limitarValor(valor, intervalo) :
     return max(min(valor, intervalo[1]), intervalo[0])
 
 def limiteMovimento(servoIndex) :
-    amplitudeServos = limitesAngulo[1] - limitesAngulo[0]
-    limite = 0.03 * amplitudeServos
+    #amplitudeServos = limitesAngulo[1] - limitesAngulo[0]
+    tempoDecorrido = time.time() - tempoUltimoComandoServos[servoIndex]
+    #velocidade = amplitudeServos / tempoDecorrido
+    #limite = limitarValor(velocidade, (0, velocidadeMaximaServos))
+
+    limite = velocidadeMaximaServos * tempoDecorrido
+    #print(limite)
     return limite
+    #limite = 0.03 * amplitudeServos
+    #return limite
 
 def seguirFace(servoIndex, face, image) :
     (x, y, w, h) = face
@@ -154,9 +159,12 @@ def seguirFace(servoIndex, face, image) :
     maxAngulo = limitesAngulo[1]
 
     angulo = limitarValor(maxAngulo - (maxAngulo - minAngulo) * posicaoRelativaFoto, limitesAngulo)
-    distanciaMovimento = abs(angulo - anguloAtualServos[servoIndex])
-    if distanciaMovimento > limiteMovimento :
-        angulo = limiteMovimento
+    distanciaMovimento = angulo - anguloAtualServos[servoIndex]
+    limite = limiteMovimento(servoIndex)
+    if distanciaMovimento > limite :
+        angulo = anguloAtualServos[servoIndex] + limite
+    elif distanciaMovimento < -limite :
+        angulo = anguloAtualServos[servoIndex] - limite        
 
     setAngulo(servoIndex, angulo)
 
@@ -198,8 +206,6 @@ def somInicial() :
 
 ''' INICIO '''
 
-#resetar arduino
-finddev(idVendor=arduinoUSBVendorID, idProduct=arduinoUSBProductID).reset()
 pygame.init()
 initArduino()
 globals()
