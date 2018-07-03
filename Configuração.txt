@@ -7,7 +7,6 @@ Configurar acesso ao PI:
 Instalar pacotes python necessários:
 	numpy
 	pyfirmata
-	pyusb
 	pygame
 	cv2
 

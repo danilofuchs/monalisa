@@ -15,6 +15,7 @@ import serial
 
 import pygame
 
+limiteTempo = 0
 anguloAtualServos = []
 tempoUltimoComandoServos = []
 limitesAngulo = ()
@@ -25,6 +26,8 @@ cameraIndex = 0
 board = 0
 
 def globals() :
+    global limiteTempo
+    limiteTempo = 10000
     global anguloAtualServos
     anguloAtualServos = [0, 0]
     global tempoUltimoComandoServos
@@ -203,7 +206,7 @@ for i in range(limitesAngulo[1], limitesAngulo[0], -1) :
 start = time.time()
 i = 0
 
-while time.time() - start < 240 and capturaVideo.isOpened():
+while time.time() - start < limiteTempo and capturaVideo.isOpened():
     
     ret, frame = capturaVideo.read()
     cv2.resize(frame, (320,240))
