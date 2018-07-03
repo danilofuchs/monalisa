@@ -12,9 +12,11 @@ import time
 
 from pyfirmata import Arduino, util
 import serial
+from usb.core import find as finddev
 
 import pygame
 
+limiteTempo = 0
 anguloAtualServos = []
 tempoUltimoComandoServos = []
 limitesAngulo = ()
@@ -22,9 +24,13 @@ servos = []
 resolucaoCaptura = ()
 capturaVideo = 0
 cameraIndex = 0
+arduinoUSBVendorID = 0
+arduinoUSBProductID = 0
 board = 0
 
 def globals() :
+    global limiteTempo
+    limiteTempo = 10000
     global anguloAtualServos
     anguloAtualServos = [0, 0]
     global tempoUltimoComandoServos
@@ -33,6 +39,12 @@ def globals() :
     # min = olho totalmente na esquerda, max = direi
     global limitesAngulo
     limitesAngulo = (65, 115)
+
+    global arduinoUSBVendorID
+    global arduinoUSBProductID
+    ''' ALTERAR PARA A CAMERA UTILIZADA. USE O COMANDO usb-devices PARA DESCOBRIR '''
+    arduinoUSBVendorID = 0x040c
+    arduinoUSBProductID = 0x6001
 
     servoPin1 = 8
     servoPin2 = 9
@@ -186,6 +198,8 @@ def somInicial() :
 
 ''' INICIO '''
 
+#resetar arduino
+finddev(idVendor=arduinoUSBVendorID, idProduct=arduinoUSBProductID).reset()
 pygame.init()
 initArduino()
 globals()
@@ -203,7 +217,7 @@ for i in range(limitesAngulo[1], limitesAngulo[0], -1) :
 start = time.time()
 i = 0
 
-while time.time() - start < 240 and capturaVideo.isOpened():
+while time.time() - start < limiteTempo and capturaVideo.isOpened():
     
     ret, frame = capturaVideo.read()
     cv2.resize(frame, (320,240))
