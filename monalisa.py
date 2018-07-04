@@ -44,7 +44,7 @@ def globals() :
     #Limites de ângulo do servo (min, max)
     # min = olho totalmente na esquerda, max = direi
     global limitesAngulo
-    limitesAngulo.append((65, 115))
+    limitesAngulo.append((60, 105))
     #limitesAngulo.append((65, 115))
     limitesAngulo.append((45, 80))
     #Velocidade máxima de reotação em graus / segundo
@@ -59,7 +59,7 @@ def globals() :
     servos = [servo1, servo2]
 
     global cameraIndex
-    cameraIndex = 0
+    cameraIndex = 1
     global resolucaoCaptura
     resolucaoCaptura = [400, 300]
     global capturaVideo
@@ -88,16 +88,15 @@ def initArduino() :
         exit()
     
 def setAngulo(index, angulo):
-    #print('Servo em {0}'.format(int(angulo)))
     angulo = int(angulo)
     servos[index].write(angulo)
     anguloAtualServos[index] = int(angulo)
     tempoUltimoComandoServos[index] = time.time()
-    print('Servo {0}: pos {1}'.format(index, angulo))
     
 def tocarSom(nomeArquivo) :
-    pygame.mixer.music.load(nomeArquivo)
-    pygame.mixer.music.play()
+    if not pygame.mixer.music.get_busy() :
+        pygame.mixer.music.load(nomeArquivo)
+        pygame.mixer.music.play()
 
 def somInicial() :
     tocarSom('audio/start_race.mp3')
@@ -111,8 +110,8 @@ def detectarFaces(image, face_cascade) :
 
     #Encontrou faces?
     if len(faces) > 0 : 
-        if not pygame.mixer.music.get_busy():
-            tocarSom('audio/oi_gato.mp3')
+        #if not pygame.mixer.music.get_busy():
+        #    tocarSom('audio/oi_gato.mp3')
         return faces
     else :
         raise LookupError('No face found')
@@ -150,7 +149,7 @@ def desenharResultado(image, faces, linhasServos) :
     if cv2.waitKey(1) & 0xFF == ord('q'):
         exit()
 
-def limitarValor(valor, intervalo) :
+def limitarValor(valor, intervalo: tuple) :
     return max(min(valor, intervalo[1]), intervalo[0])
 
 def limiteMovimento(servoIndex) :
@@ -159,11 +158,11 @@ def limiteMovimento(servoIndex) :
     #velocidade = amplitudeServos / tempoDecorrido
     #limite = limitarValor(velocidade, (0, velocidadeMaximaServos))
 
-    limite = velocidadeMaximaServos * tempoDecorrido
-    #print(limite)
+    limitePorVelocidade = velocidadeMaximaServos * tempoDecorrido
+    limitePorDistancia = velocidadeMaximaServos / 5
+
+    limite = min(limitePorDistancia, limitePorVelocidade)
     return limite
-    #limite = 0.03 * amplitudeServos
-    #return limite
 
 def seguirFace(servoIndex, face, image) :
     (x, y, w, h) = face
@@ -186,22 +185,33 @@ def seguirFace(servoIndex, face, image) :
 
     return posicaoRelativaFoto
 
+def posicaoRelativaParaAngulo(posicaoRelativa, indexServo, image) :
+    amplitudeServo = limitesAngulo[indexServo][1] - limitesAngulo[indexServo][0]
+    angulo = posicaoRelativa * amplitudeServo + limitesAngulo[indexServo][0]
+    return angulo
+
+def anguloParaPosicaoRelativa(angulo, indexServo) :
+    amplitudeServo = limitesAngulo[indexServo][1] - limitesAngulo[indexServo][0]
+    posicaoRelativa = (angulo - limitesAngulo[indexServo][1] ) / - amplitudeServo
+    return posicaoRelativa
+
 def modoLouco() :
-    tocarSom('/audio/nervosa1.mp3')
+    tocarSom('audio/grito1.mp3')
     amplitudeServo0 = limitesAngulo[0][1] - limitesAngulo[0][0]
     amplitudeServo1 = limitesAngulo[1][1] - limitesAngulo[1][0]
 
     for i in range(0, 30) :
         setAngulo(0, (i * (1/30) * amplitudeServo0 + limitesAngulo[0][0]))
-        setAngulo(0, (i * (1/30) * amplitudeServo1 + limitesAngulo[1][0]))
+        setAngulo(1, (i * (1/30) * amplitudeServo1 + limitesAngulo[1][0]))
         time.sleep(0.01)
     for i in range(30, 0, -1) :
         setAngulo(0, (i * (1/30) * amplitudeServo0 + limitesAngulo[0][0]))
-        setAngulo(0, (i * (1/30) * amplitudeServo1 + limitesAngulo[1][0]))
+        setAngulo(1, (i * (1/30) * amplitudeServo1 + limitesAngulo[1][0]))
         time.sleep(0.01)
     
 
 def moverBaseadoNasFaces(faces, image) :
+    
     anguloServosRelativo = (0, 0)
     facesDecrescente = faces
 
@@ -214,11 +224,28 @@ def moverBaseadoNasFaces(faces, image) :
         i += 1
 
     numeroFaces = facesDecrescente.shape[0]
+    (x,y,w,h) = facesDecrescente[0]
+    if x == 0 :
+        numeroFaces = 0
 
     anguloServosRelativo = [0, 0]
 
+
     if numeroFaces == 0 :
-        a = 0
+        print('nenhuma face')
+        comandoMaisRecente = max(tempoUltimoComandoServos[0], tempoUltimoComandoServos[1])
+        if time.time() - comandoMaisRecente > 10 :
+            (x, y, w, h) = (image.shape[0]/2, 0, 2, 2)
+            anguloServosRelativo[0] = seguirFace(0, (x, y, w, h), image)
+            anguloServosRelativo[1] = seguirFace(1, (x, y, w, h), image)
+            
+        else :
+            if randint(0, 10000) == 1 :
+                print('louco')
+                modoLouco()
+            else :
+                anguloServosRelativo[0] = anguloParaPosicaoRelativa(anguloAtualServos[0], 0)
+                anguloServosRelativo[1] = anguloParaPosicaoRelativa(anguloAtualServos[1], 1)
     elif numeroFaces == 1 :
         anguloServosRelativo[0] = seguirFace(0, facesDecrescente[0], image)
         anguloServosRelativo[1] = seguirFace(1, facesDecrescente[0], image)
@@ -226,50 +253,56 @@ def moverBaseadoNasFaces(faces, image) :
         anguloServosRelativo[0] = seguirFace(0, facesDecrescente[0], image)
         anguloServosRelativo[1] = seguirFace(1, facesDecrescente[1], image)
 
+    if randint(0, 100) == 1 :
+        somNum = randint(1,5)
+        tocarSom('audio/foto{0}'.format(somNum))
+
     return anguloServosRelativo
 
+def movimentoInicial() :
+    amplitudeServo0 = limitesAngulo[0][1] - limitesAngulo[0][0]
+    amplitudeServo1 = limitesAngulo[1][1] - limitesAngulo[1][0]
+    for i in range(0, 30) :
+        setAngulo(0, (i * (1/30) * amplitudeServo0 + limitesAngulo[0][0]))
+        setAngulo(1, (i * (1/30) * amplitudeServo1 + limitesAngulo[1][0]))
+        time.sleep(0.02)
+    for i in range(30, 0, -1) :
+        setAngulo(0, (i * (1/30) * amplitudeServo0 + limitesAngulo[0][0]))
+        setAngulo(1, (i * (1/30) * amplitudeServo1 + limitesAngulo[1][0]))
+        time.sleep(0.02)
+
 ''' INICIO '''
+
 
 pygame.init()
 initArduino()
 globals()
 
-somInicial()
+print(anguloParaPosicaoRelativa(115, 0))
 
-amplitudeServo0 = limitesAngulo[0][1] - limitesAngulo[0][0]
-amplitudeServo1 = limitesAngulo[1][1] - limitesAngulo[1][0]
-for i in range(0, 30) :
-    setAngulo(0, (i * (1/30) * amplitudeServo0 + limitesAngulo[0][0]))
-    setAngulo(0, (i * (1/30) * amplitudeServo1 + limitesAngulo[1][0]))
-    time.sleep(0.005)
-for i in range(30, 0, -1) :
-    setAngulo(0, (i * (1/30) * amplitudeServo0 + limitesAngulo[0][0]))
-    setAngulo(0, (i * (1/30) * amplitudeServo1 + limitesAngulo[1][0]))
-    time.sleep(0.005)
+somInicial()
+movimentoInicial()
 
 start = time.time()
 i = 0
 
 while time.time() - start < limiteTempo and capturaVideo.isOpened():
-    
     ret, frame = capturaVideo.read()
     cv2.resize(frame, (320,240))
     temFacesNaImagem = True
     try :
         faces = detectarFaces(frame, face_cascade)
     except LookupError :
+        faces = np.array([(0,0,0,0)])
         temFacesNaImagem = False
-    if temFacesNaImagem :
-        anguloServosRelativo = moverBaseadoNasFaces(faces, frame)
-        #setAngle(servo2, anguloServosRelativo[0] * 100) 
-        linhasServos = []
-        for angulo in anguloServosRelativo :
-            rectangle = (int((frame.shape[0]) * angulo), 0, 1, frame.shape[1])
-                        #(x, y, w, h)
-            linhasServos.append(rectangle)
-        desenharResultado(frame, faces, linhasServos)
-    else :
-        desenharResultado(frame, np.array([(0,0,0,0)]), np.array([(0,0,0,0)]))
+
+    anguloServosRelativo = moverBaseadoNasFaces(faces, frame)
+    linhasServos = []
+    for angulo in anguloServosRelativo :
+        rectangle = (int((frame.shape[0]) * angulo), 0, 1, frame.shape[1])
+                    #(x, y, w, h)
+        linhasServos.append(rectangle)
+    desenharResultado(frame, faces, linhasServos)
     
     i = i + 1
     current = time.time()
