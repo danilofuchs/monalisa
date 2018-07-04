@@ -29,10 +29,14 @@ tempoUltimoComandoServos = []
 limitesAngulo = []
 velocidadeMaximaServos = 0
 servos = []
+
+tempoUltimaDeteccao = 0
 resolucaoCaptura = ()
 capturaVideo = 0
 cameraIndex = 0
 board = 0
+
+sonsRecentes = []
 
 def globals() :
     global limiteTempo
@@ -58,6 +62,8 @@ def globals() :
     global servos
     servos = [servo1, servo2]
 
+    global tempoUltimaDeteccao
+    tempoUltimaDeteccao = 0
     global cameraIndex
     cameraIndex = 1
     global resolucaoCaptura
@@ -70,6 +76,9 @@ def globals() :
     #Load a cascade file for detecting faces
     global face_cascade
     face_cascade = cv2.CascadeClassifier('facial_recognition_model.xml')
+
+    global sonsRecentes
+    sonsRecentes = []
 
 def initArduino() :
     global board
@@ -94,9 +103,23 @@ def setAngulo(index, angulo):
     tempoUltimoComandoServos[index] = time.time()
     
 def tocarSom(nomeArquivo) :
-    if not pygame.mixer.music.get_busy() :
+    if not pygame.mixer.music.get_busy() and not somFoiTocadoRecente(nomeArquivo) :
         pygame.mixer.music.load(nomeArquivo)
         pygame.mixer.music.play()
+        sonsRecentes.append((nomeArquivo, time.time()))
+
+def somFoiTocadoRecente(nomeArquivo) :
+    foiTocado = False
+    for (som, tempo) in sonsRecentes :
+        if som == nomeArquivo :
+            foiTocado = True
+            break
+    return foiTocado
+
+def removerSonsAntigos() :
+    for (som, tempo) in sonsRecentes :
+        if time.time() - tempo > 120 :
+            sonsRecentes.remove((som, tempo))
 
 def somInicial() :
     tocarSom('audio/start_race.mp3')
@@ -112,6 +135,7 @@ def detectarFaces(image, face_cascade) :
     if len(faces) > 0 : 
         #if not pygame.mixer.music.get_busy():
         #    tocarSom('audio/oi_gato.mp3')
+        tempoUltimaDeteccao = time.time()
         return faces
     else :
         raise LookupError('No face found')
@@ -204,11 +228,51 @@ def modoLouco() :
         setAngulo(0, (i * (1/30) * amplitudeServo0 + limitesAngulo[0][0]))
         setAngulo(1, (i * (1/30) * amplitudeServo1 + limitesAngulo[1][0]))
         time.sleep(0.01)
+    for i in range(30, 15, -1) :
+        setAngulo(0, (i * (1/30) * amplitudeServo0 + limitesAngulo[0][0]))
+        setAngulo(1, (i * (1/30) * amplitudeServo1 + limitesAngulo[1][0]))
+        time.sleep(0.01)
+    for i in range(15, 30) :
+        setAngulo(0, (i * (1/30) * amplitudeServo0 + limitesAngulo[0][0]))
+        setAngulo(1, (i * (1/30) * amplitudeServo1 + limitesAngulo[1][0]))
+        time.sleep(0.01)
     for i in range(30, 0, -1) :
         setAngulo(0, (i * (1/30) * amplitudeServo0 + limitesAngulo[0][0]))
         setAngulo(1, (i * (1/30) * amplitudeServo1 + limitesAngulo[1][0]))
         time.sleep(0.01)
-    
+    for i in range(0, 30) :
+        setAngulo(0, (i * (1/30) * amplitudeServo0 + limitesAngulo[0][0]))
+        time.sleep(0.01)
+    for i in range(0, 30) :
+        setAngulo(0, ((30-i) * (1/30) * amplitudeServo0 + limitesAngulo[0][0]))
+        setAngulo(1, (i * (1/30) * amplitudeServo1 + limitesAngulo[1][0]))
+        time.sleep(0.01)
+    for i in range(30, 15, -1) :
+        setAngulo(0, ((30-i) * (1/30) * amplitudeServo0 + limitesAngulo[0][0]))
+        setAngulo(1, (i * (1/30) * amplitudeServo1 + limitesAngulo[1][0]))
+        time.sleep(0.01)
+    for i in range(15, 30) :
+        setAngulo(0, ((30-i) * (1/30) * amplitudeServo0 + limitesAngulo[0][0]))
+        setAngulo(1, (i * (1/30) * amplitudeServo1 + limitesAngulo[1][0]))
+        time.sleep(0.01)
+    for i in range(30, 0, -1) :
+        setAngulo(0, ((30-i) * (1/30) * amplitudeServo0 + limitesAngulo[0][0]))
+        setAngulo(1, (i * (1/30) * amplitudeServo1 + limitesAngulo[1][0]))
+        time.sleep(0.01)
+    for i in range(0, 15) :
+        setAngulo(0, ((30-i) * (1/30) * amplitudeServo0 + limitesAngulo[0][0]))
+        setAngulo(1, (i * (1/30) * amplitudeServo1 + limitesAngulo[1][0]))
+        time.sleep(0.01)
+
+def modoSeguirDuas(faces, image) :
+
+def modoEsconderOlhos() :
+    while ( anguloAtualServos[0] > limitesAngulo[0][0] - 10 and
+            anguloAtualServos[1] < limitesAngulo[1][1] + 10) :
+        setAngulo(0, anguloAtualServos[0] - 5)
+        setAngulo(1, anguloAtualServos[1] + 5)
+        time.sleep(0.05)
+
 
 def moverBaseadoNasFaces(faces, image) :
     
@@ -233,12 +297,11 @@ def moverBaseadoNasFaces(faces, image) :
 
     if numeroFaces == 0 :
         print('nenhuma face')
-        comandoMaisRecente = max(tempoUltimoComandoServos[0], tempoUltimoComandoServos[1])
-        if time.time() - comandoMaisRecente > 10 :
+
+        if time.time() - tempoUltimaDeteccao > 10 :
             (x, y, w, h) = (image.shape[0]/2, 0, 2, 2)
             anguloServosRelativo[0] = seguirFace(0, (x, y, w, h), image)
-            anguloServosRelativo[1] = seguirFace(1, (x, y, w, h), image)
-            
+            anguloServosRelativo[1] = seguirFace(1, (x, y, w, h), image)            
         else :
             if randint(0, 10000) == 1 :
                 print('louco')
@@ -246,16 +309,29 @@ def moverBaseadoNasFaces(faces, image) :
             else :
                 anguloServosRelativo[0] = anguloParaPosicaoRelativa(anguloAtualServos[0], 0)
                 anguloServosRelativo[1] = anguloParaPosicaoRelativa(anguloAtualServos[1], 1)
-    elif numeroFaces == 1 :
-        anguloServosRelativo[0] = seguirFace(0, facesDecrescente[0], image)
-        anguloServosRelativo[1] = seguirFace(1, facesDecrescente[0], image)
-    elif numeroFaces == 2 :
-        anguloServosRelativo[0] = seguirFace(0, facesDecrescente[0], image)
-        anguloServosRelativo[1] = seguirFace(1, facesDecrescente[1], image)
+    else :
+        if time.time() - tempoUltimaDeteccao > 1.5 :
+            somNum = randint(1,3)
+            tocarSom('audio/ola{0}.mp3'.format(somNum))
+        if numeroFaces == 1 :
+            anguloServosRelativo[0] = seguirFace(0, facesDecrescente[0], image)
+            anguloServosRelativo[1] = seguirFace(1, facesDecrescente[0], image)
+        elif numeroFaces == 2 :
+            anguloServosRelativo[0] = seguirFace(0, facesDecrescente[0], image)
+            anguloServosRelativo[1] = seguirFace(1, facesDecrescente[1], image)
+        else :
+            #muita gente
+            if randint(0, 100) < 75 :
+                #75% de chance de dizer que está nervosa
+                somNum = randint(1,3)
+                tocarSom('audio/muitaspessoas{0}.mp3'.format(somNum))
+                if randint(0, 100) < 50 :
+                    modoEsconderOlhos()
 
     if randint(0, 100) == 1 :
         somNum = randint(1,5)
-        tocarSom('audio/foto{0}'.format(somNum))
+        tocarSom('audio/foto{0}.mp3'.format(somNum))
+
 
     return anguloServosRelativo
 
@@ -286,6 +362,13 @@ movimentoInicial()
 start = time.time()
 i = 0
 
+j = 0
+while pygame.mixer.music.get_busy() :
+    j += 1
+print('inicio')
+modoLouco()
+print('fim')
+
 while time.time() - start < limiteTempo and capturaVideo.isOpened():
     ret, frame = capturaVideo.read()
     cv2.resize(frame, (320,240))
@@ -304,6 +387,8 @@ while time.time() - start < limiteTempo and capturaVideo.isOpened():
         linhasServos.append(rectangle)
     desenharResultado(frame, faces, linhasServos)
     
+    removerSonsAntigos()
+
     i = i + 1
     current = time.time()
     print('Processed {0} frames in {1:.2f}s. Avg {2:.2f}fps\r'.format(i, (current-start), i/(current-start), end='\r'))
