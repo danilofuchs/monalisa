@@ -17,11 +17,21 @@ import serial
 import pygame
 
 
-'''      MODOS DIFERENTES DE REAGIR            ''
-''  0 - Seguir apenas 1 pessoa                 ''
-''  1 - Seguir 2 pessoas cada uma em 1 olho    ''
-''  2 - Esconder os olhos - Não seguir ninguém ''
-''  3 - Louca                                  '''
+'''      MODOS DIFERENTES DE REAGIR                                         ''
+''  0 - Seguir apenas 1 pessoa                                              ''
+''  1 - Seguir 2 pessoas cada uma em 1 olho (maior em 1, menor em outro)    ''
+''  2 - Seguir 2 pessoas cada uma em 1 olho (esq = esq, dir = dir)          ''
+''  3 - Esconder os olhos - Não seguir ninguém                              ''
+''  4 - Louca                                                               '''
+
+modos = [
+    ('seguir1', 60),
+    ('seguir2maior', 30),
+    ('seguir2lado', 30),
+    ('esconder', 30),
+    ('louco', 30)
+]
+modoAtual = ['seguir1', time.time()]
 
 limiteTempo = 0
 anguloAtualServos = []
@@ -38,6 +48,8 @@ board = 0
 
 sonsRecentes = []
 tempoAntesDeRepetirSons = 0
+
+
 
 def globals() :
     global limiteTempo
@@ -167,14 +179,21 @@ def faceEstaNoVetor(faces, faceAlvo) :
 
 def acharMaiorFace(faces, facesParaIgnorar) :
     maiorFace = (0,0,0,0)
-    found = False
     for face in faces:
         if not faceEstaNoVetor(facesParaIgnorar, face) :
             (x, y, w, h) = face
             if w * h > maiorFace[2] * maiorFace[3] :
-                found = True
                 maiorFace = (x,y,w,h)
     return maiorFace
+
+def acharFaceMaisDireita(faces, facesParaIgnorar) :
+    faceMaisDireita = (0,0,0,0)
+    for face in faces:
+        if not faceEstaNoVetor(facesParaIgnorar, face) :
+            (x, y, w, h) = face
+            if x > faceMaisDireita[0] :
+                faceMaisDireita = (x,y,w,h)
+    return faceMaisDireita
 
 def desenharResultado(image, faces, anguloServos) :
     fatorAmpliacao = (  640 / image.shape[1],
@@ -235,9 +254,6 @@ def seguirFace(servoIndex, face, image) :
         angulo = anguloAtualServos[servoIndex] - limite        
 
     setAngulo(servoIndex, angulo)
-
-    print('Mandado para {0}. Angulo = {1}'.format(posicaoRelativaFoto, angulo))
-
     return angulo
 
 def posicaoRelativaParaAngulo(posicaoRelativa, servoIndex, image) :
@@ -254,7 +270,6 @@ def anguloParaPosicaoRelativa(angulo, servoIndex) :
     maxAngulo = limitesAngulo[servoIndex][1]
     amplitudeServo = limitesAngulo[servoIndex][1] - limitesAngulo[servoIndex][0]
     posicaoRelativa = (- angulo + maxAngulo) / amplitudeServo
-    print(posicaoRelativa)
     return posicaoRelativa
 
 def modoLouco() :
@@ -316,6 +331,44 @@ def modoEsconderOlhos() :
         setAngulo(1, (i * (1/30) * amplitudeServo1 + limitesAngulo[1][0]))
         time.sleep(0.007)
 
+def setModo(nomeModo) :
+    global modos
+    global modoAtual
+    (nomeAtual, tempoAtual) = modoAtual
+    if nomeAtual != nomeModo :
+        modoAtual = (nomeModo, time.time())
+
+def modoAtualEstaExpirado() :
+    global modoAtual
+    global modos
+    valido = True
+    (nomeModoAtual, tempoAtual) = modoAtual
+    for (modo, tempoMin) in modos :
+        if nomeModoAtual == modo :
+            if time.time() - tempoAtual > tempoMin :
+                valido = False
+    return valido
+
+def agirPeloModoAtual(facesDecrescente) :
+    global modoAtual
+    (nomeAtual, tempoAtual) = modoAtual
+    if nomeAtual == 'seguir1' :
+        anguloServos[0] = seguirFace(0, facesDecrescente[0], image)
+        anguloServos[1] = seguirFace(1, facesDecrescente[0], image)
+    elif nomeAtual == 'seguir2maior' :
+        anguloServos[0] = seguirFace(0, facesDecrescente[0], image)
+        anguloServos[1] = seguirFace(1, facesDecrescente[1], image)
+    elif nomeAtual == 'seguir2lado' :
+        facesDirParaEsq = facesDecrescente
+        i = 0
+        for (x, y, w, h) in facesDecrescente:
+            facesDirParaEsq[i] = acharFaceMaisDireita(facesDecrescente, facesParaIgnorar)
+            facesParaIgnorar.append(facesDirParaEsq[i])
+            i += 1
+        anguloServos[0] = seguirFace(0, facesDirParaEsq[0], image)
+        anguloServos[1] = seguirFace(1, facesDirParaEsq[1], image)
+    elif nomeAtual == 'louco' :
+        modoLouco()
 
 def moverBaseadoNasFaces(faces, image) :
 
@@ -366,8 +419,23 @@ def moverBaseadoNasFaces(faces, image) :
             anguloServos[0] = seguirFace(0, facesDecrescente[0], image)
             anguloServos[1] = seguirFace(1, facesDecrescente[0], image)
         elif numeroFaces == 2 :
+            '''
             anguloServos[0] = seguirFace(0, facesDecrescente[0], image)
             anguloServos[1] = seguirFace(1, facesDecrescente[1], image)
+            '''
+            facesDirParaEsq = facesDecrescente
+            facesParaIgnorar = []
+            i = 0
+            for (x, y, w, h) in facesDecrescente:
+                facesDirParaEsq[i] = acharFaceMaisDireita(facesDecrescente, facesParaIgnorar)
+                facesParaIgnorar.append(facesDirParaEsq[i])
+                i += 1
+
+            if (facesDirParaEsq[1][0] != 0) :
+                anguloServos[0] = seguirFace(0, facesDirParaEsq[1], image)
+            else :
+                anguloServos[0] = seguirFace(0, facesDirParaEsq[0], image)
+            anguloServos[1] = seguirFace(1, facesDirParaEsq[0], image)
         else :
             #muita gente
             anguloServos[0] = seguirFace(0, facesDecrescente[0], image)
