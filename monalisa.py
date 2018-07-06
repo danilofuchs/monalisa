@@ -66,7 +66,8 @@ def globals() :
     limitesAngulo.append((45, 80))
     #Velocidade máxima de reotação em graus / segundo
     global velocidadeMaximaServos
-    velocidadeMaximaServos = 40
+   # velocidadeMaximaServos = 40
+    velocidadeMaximaServos = 30
 
     servoPin1 = 8
     servoPin2 = 9
@@ -406,7 +407,7 @@ def moverBaseadoNasFaces(faces, image) :
                 anguloServos[0] = anguloAtualServos[0]
                 anguloServos[1] = anguloAtualServos[1]
     else :
-        if not somDoTipoFoiTocadoRecente('ola', 30) :
+        if not somDoTipoFoiTocadoRecente('ola', 30) and not somDoTipoFoiTocadoRecente('salve', 30) :
             somNum = randint(1,5)
             if somNum <= 3:
                 tocarSom('audio/ola{0}.mp3'.format(somNum))
@@ -414,7 +415,8 @@ def moverBaseadoNasFaces(faces, image) :
                 tocarSom('audio/salve{0}.mp3'.format(somNum - 3))
         if randint(0, 1000) < 5 :
             if not somDoTipoFoiTocadoRecente('cantada', 120) :
-                tocarSom('audio/cantada1.mp3')
+                somNum = randint(1, 5)
+                tocarSom('audio/cantada{0}.mp3'.format(somNum))
         if numeroFaces == 1 :
             anguloServos[0] = seguirFace(0, facesDecrescente[0], image)
             anguloServos[1] = seguirFace(1, facesDecrescente[0], image)
@@ -448,7 +450,7 @@ def moverBaseadoNasFaces(faces, image) :
                     if randint(0, 100) < 10 :
                         modoEsconderOlhos()
 
-    aleatorio = randint(0, 6000)
+    aleatorio = randint(0, 2000)
     if aleatorio < 30 :
         if aleatorio < 10 :
             somNum = randint(2,7)
@@ -496,12 +498,6 @@ i = 0
 j = 0
 while pygame.mixer.music.get_busy() :
     j += 1
-print('inicio')
-somNum = randint(1,3)
-tocarSom('audio/muitaspessoas{0}.mp3'.format(somNum))
-modoEsconderOlhos()
-print('fim')
-
 
 while time.time() - start < limiteTempo and capturaVideo.isOpened():
     ret, frame = capturaVideo.read()
@@ -514,7 +510,7 @@ while time.time() - start < limiteTempo and capturaVideo.isOpened():
         temFacesNaImagem = False
 
     angulosServos = moverBaseadoNasFaces(faces, frame)
-    desenharResultado(frame, faces, angulosServos)
+    #desenharResultado(frame, faces, angulosServos)
 
     i = i + 1
     current = time.time()
