@@ -1,0 +1,16 @@
+Conectar com a tela do rapsberry:
+	- Área de trabalho remota: conectar com raspberrypi.local
+	- Usuário: pi
+	- Senha: crossnawinter18
+
+Na tela do raspberry:
+	- Se o console não estiver aberto, abra ele apertando no ícone preto na barra de tarefas superior.
+	- Com o console aberto:
+		- Se está escrito usr/lcl, digite "cd share/monalisa2 " sem aspas
+		- Se está escrito usr/share/monalisa2, está certo
+		- Digite "python3 monalisa.py" sem aspas
+		- Se der "Erro na conexão com o arduino", reconecte o USB
+        - Se travar e aparecer "Select timeout", pare o programa segurando Q e o inicie novamente
+        
+        - SEMPRE QUE QUISER PARAR O PROGRAMA: deixe segurado a letra Q do teclado até o próximo frame aparecer
+	
