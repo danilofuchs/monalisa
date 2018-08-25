@@ -101,7 +101,8 @@ def initArduino() :
     sucessoArduino = False
     for i in range (0, 10) :
         try:
-            board = Arduino('/dev/ttyUSB{0}'.format(i))
+            #board = Arduino('/dev/ttyUSB{0}'.format(i))
+            board = Arduino('COM{0}'.format(i))
             sucessoArduino = True
             break
         except serial.serialutil.SerialException as e:
@@ -156,7 +157,8 @@ def somInicial() :
 def detectarFaces(image, face_cascade) :
 
     #Converte imagem para preto/branco (3x mais rapido)
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    #gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    gray = image
     #Encontra faces pelo modelo treinado
     faces = face_cascade.detectMultiScale(gray, 1.1, 5)
 
@@ -177,15 +179,6 @@ def faceEstaNoVetor(faces, faceAlvo) :
             found = True
     
     return found
-
-def acharMaiorFace(faces, facesParaIgnorar) :
-    maiorFace = (0,0,0,0)
-    for face in faces:
-        if not faceEstaNoVetor(facesParaIgnorar, face) :
-            (x, y, w, h) = face
-            if w * h > maiorFace[2] * maiorFace[3] :
-                maiorFace = (x,y,w,h)
-    return maiorFace
 
 def acharFaceMaisDireita(faces, facesParaIgnorar) :
     faceMaisDireita = (0,0,0,0)
@@ -371,16 +364,14 @@ def agirPeloModoAtual(facesDecrescente) :
     elif nomeAtual == 'louco' :
         modoLouco()
 
+def area(face) :
+    return face[2]*face[3]
+
 def moverBaseadoNasFaces(faces, image) :
     global multiplicadorIntervalo
-    facesDecrescente = faces
     facesParaIgnorar = []
 
-    i = 0
-    for (x, y, w, h) in faces:
-        facesDecrescente[i] = acharMaiorFace(faces, facesParaIgnorar)
-        facesParaIgnorar.append(facesDecrescente[i])
-        i += 1
+    facesDecrescente = np.asarray(sorted(faces, key=area, reverse=True))
 
     numeroFaces = facesDecrescente.shape[0]
     (x,y,w,h) = facesDecrescente[0]
@@ -488,7 +479,7 @@ def movimentoInicial() :
 
 ''' INICIO '''
 
-
+cv2.setNumThreads(4)
 pygame.init()
 pygame.mixer.init()
 initArduino()
@@ -501,13 +492,13 @@ start = time.time()
 i = 0
 
 
-j = 0
+
 while pygame.mixer.music.get_busy() :
-    j += 1
+    pass
 
 while time.time() - start < limiteTempo and capturaVideo.isOpened():
     ret, frame = capturaVideo.read()
-    cv2.resize(frame, (320,240))
+    cv2.resize(frame, (640,480))
     temFacesNaImagem = True
     try :
         faces = detectarFaces(frame, face_cascade)
