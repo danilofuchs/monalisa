@@ -51,6 +51,10 @@ tempoAntesDeRepetirSons = 0
 
 multiplicadorIntervalo = 1
 
+ordemBuffer = 0
+posicaoRelativasBuffer = []
+posicaoRelativaAtualServos = []
+
 def globals() :
     global limiteTempo
     limiteTempo = 20000
@@ -96,6 +100,13 @@ def globals() :
     global tempoAntesDeRepetirSons
     tempoAntesDeRepetirSons = 120
 
+    global posicaoRelativasBuffer
+    global ordemBuffer
+    ordemBuffer = 10
+    posicaoRelativasBuffer = [np.zeros((1, ordemBuffer)), np.zeros((1, ordemBuffer))]
+    global posicaoRelativaAtualServos
+    posicaoRelativaAtualServos = [0,0]
+
 def initArduino() :
     global board
     sucessoArduino = False
@@ -122,6 +133,11 @@ def setAngulo(index, angulo):
     anguloAtualServos[index] = int(angulo)
     tempoUltimoComandoServos[index] = time.time()
     
+def addPosicaoRelativaBuffer(servoIndex, posicaoRelativa) :
+    global posicaoRelativasBuffer
+    posicaoRelativasBuffer[servoIndex] = np.roll(posicaoRelativasBuffer[servoIndex], 1)
+    posicaoRelativasBuffer[servoIndex][0][0] = posicaoRelativa
+
 def tocarSom(nomeArquivo) :
     if not pygame.mixer.music.get_busy() and not somFoiTocadoRecente(nomeArquivo, tempoAntesDeRepetirSons) :
         pygame.mixer.music.load(nomeArquivo)
@@ -172,23 +188,6 @@ def detectarFaces(image, face_cascade) :
     else :
         raise LookupError('No face found')
 
-def faceEstaNoVetor(faces, faceAlvo) :
-    found = False
-    for face in faces:
-        if (face == faceAlvo).all() :
-            found = True
-    
-    return found
-
-def acharFaceMaisDireita(faces, facesParaIgnorar) :
-    faceMaisDireita = (0,0,0,0)
-    for face in faces:
-        if not faceEstaNoVetor(facesParaIgnorar, face) :
-            (x, y, w, h) = face
-            if x > faceMaisDireita[0] :
-                faceMaisDireita = (x,y,w,h)
-    return faceMaisDireita
-
 def desenharResultado(image, faces, anguloServos) :
     fatorAmpliacao = (  640 / image.shape[1],
                         480 / image.shape[0])
@@ -236,9 +235,18 @@ def seguirFace(servoIndex, face, image) :
     posicaoMedia = x + (w/2)
     posicaoRelativaFoto = posicaoMedia / (image.shape[1] * 1.0)
 
+    addPosicaoRelativaBuffer(servoIndex, posicaoRelativaFoto)
+
+    global posicaoRelativasBuffer
+    global posicaoRelativaAtualServos
+    global ordemBuffer
+
+    posicaoRelativaAtualServos[servoIndex] += (posicaoRelativasBuffer[0][0][0] - posicaoRelativasBuffer[0][0][-1])/ordemBuffer
+
+    
     minAngulo = limitesAngulo[servoIndex][0]
     maxAngulo = limitesAngulo[servoIndex][1]
-
+    '''
     angulo = limitarValor(maxAngulo - (maxAngulo - minAngulo) * posicaoRelativaFoto, limitesAngulo[servoIndex])
     distanciaMovimento = angulo - anguloAtualServos[servoIndex]
     limite = limiteMovimento(servoIndex)
@@ -247,6 +255,9 @@ def seguirFace(servoIndex, face, image) :
     elif distanciaMovimento < -limite :
         angulo = anguloAtualServos[servoIndex] - limite        
 
+    
+    '''
+    angulo = limitarValor(maxAngulo - (maxAngulo - minAngulo) * posicaoRelativaAtualServos[servoIndex], limitesAngulo[servoIndex])
     setAngulo(servoIndex, angulo)
     return angulo
 
@@ -343,35 +354,11 @@ def modoAtualEstaExpirado() :
                 valido = False
     return valido
 
-def agirPeloModoAtual(facesDecrescente) :
-    global modoAtual
-    (nomeAtual, tempoAtual) = modoAtual
-    if nomeAtual == 'seguir1' :
-        anguloServos[0] = seguirFace(0, facesDecrescente[0], image)
-        anguloServos[1] = seguirFace(1, facesDecrescente[0], image)
-    elif nomeAtual == 'seguir2maior' :
-        anguloServos[0] = seguirFace(0, facesDecrescente[0], image)
-        anguloServos[1] = seguirFace(1, facesDecrescente[1], image)
-    elif nomeAtual == 'seguir2lado' :
-        facesDirParaEsq = facesDecrescente
-        i = 0
-        for (x, y, w, h) in facesDecrescente:
-            facesDirParaEsq[i] = acharFaceMaisDireita(facesDecrescente, facesParaIgnorar)
-            facesParaIgnorar.append(facesDirParaEsq[i])
-            i += 1
-        anguloServos[0] = seguirFace(0, facesDirParaEsq[0], image)
-        anguloServos[1] = seguirFace(1, facesDirParaEsq[1], image)
-    elif nomeAtual == 'louco' :
-        modoLouco()
-
-def area(face) :
-    return face[2]*face[3]
-
 def moverBaseadoNasFaces(faces, image) :
     global multiplicadorIntervalo
     facesParaIgnorar = []
-
-    facesDecrescente = np.asarray(sorted(faces, key=area, reverse=True))
+    areaFace = lambda face : face[2]*face[3]
+    facesDecrescente = np.asarray(sorted(faces, key=areaFace, reverse=True))
 
     numeroFaces = facesDecrescente.shape[0]
     (x,y,w,h) = facesDecrescente[0]
@@ -414,19 +401,11 @@ def moverBaseadoNasFaces(faces, image) :
             anguloServos[0] = seguirFace(0, facesDecrescente[0], image)
             anguloServos[1] = seguirFace(1, facesDecrescente[0], image)
         elif numeroFaces == 2 :
-            '''
-            anguloServos[0] = seguirFace(0, facesDecrescente[0], image)
-            anguloServos[1] = seguirFace(1, facesDecrescente[1], image)
-            '''
-            facesDirParaEsq = facesDecrescente
-            facesParaIgnorar = []
-            i = 0
-            for (x, y, w, h) in facesDecrescente:
-                facesDirParaEsq[i] = acharFaceMaisDireita(facesDecrescente, facesParaIgnorar)
-                facesParaIgnorar.append(facesDirParaEsq[i])
-                i += 1
+            xFace = lambda face : face[0]
+            facesDirParaEsq = np.asarray(sorted(faces, key=xFace, reverse=True))
 
-            if (facesDirParaEsq[1][0] != 0) :
+            segundaFaceValida = lambda faces: facesDirParaEsq[1][0] != 0
+            if (segundaFaceValida(facesDirParaEsq)) :
                 anguloServos[0] = seguirFace(0, facesDirParaEsq[1], image)
             else :
                 anguloServos[0] = seguirFace(0, facesDirParaEsq[0], image)
