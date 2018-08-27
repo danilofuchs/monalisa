@@ -102,12 +102,13 @@ def globals() :
 
     global posicaoRelativasBuffer
     global ordemBuffer
-    ordemBuffer = 10
+    ordemBuffer = 5
     posicaoRelativasBuffer = [np.zeros((1, ordemBuffer)), np.zeros((1, ordemBuffer))]
     global posicaoRelativaAtualServos
     posicaoRelativaAtualServos = [0,0]
 
 def initArduino() :
+
     global board
     sucessoArduino = False
     for i in range (0, 10) :
@@ -123,6 +124,7 @@ def initArduino() :
     else :
         print('Erro ao conectar com o arduino!')
         exit()
+
     
 def setAngulo(index, angulo):
     global servos
@@ -241,22 +243,11 @@ def seguirFace(servoIndex, face, image) :
     global posicaoRelativaAtualServos
     global ordemBuffer
 
-    posicaoRelativaAtualServos[servoIndex] += (posicaoRelativasBuffer[0][0][0] - posicaoRelativasBuffer[0][0][-1])/ordemBuffer
-
+    posicaoRelativaAtualServos[servoIndex] = posicaoRelativaAtualServos[servoIndex] * ((ordemBuffer-1)/ordemBuffer) + (posicaoRelativasBuffer[servoIndex][0][0]) / ordemBuffer
     
     minAngulo = limitesAngulo[servoIndex][0]
     maxAngulo = limitesAngulo[servoIndex][1]
-    '''
-    angulo = limitarValor(maxAngulo - (maxAngulo - minAngulo) * posicaoRelativaFoto, limitesAngulo[servoIndex])
-    distanciaMovimento = angulo - anguloAtualServos[servoIndex]
-    limite = limiteMovimento(servoIndex)
-    if distanciaMovimento > limite :
-        angulo = anguloAtualServos[servoIndex] + limite
-    elif distanciaMovimento < -limite :
-        angulo = anguloAtualServos[servoIndex] - limite        
 
-    
-    '''
     angulo = limitarValor(maxAngulo - (maxAngulo - minAngulo) * posicaoRelativaAtualServos[servoIndex], limitesAngulo[servoIndex])
     setAngulo(servoIndex, angulo)
     return angulo
@@ -404,7 +395,7 @@ def moverBaseadoNasFaces(faces, image) :
             xFace = lambda face : face[0]
             facesDirParaEsq = np.asarray(sorted(faces, key=xFace, reverse=True))
 
-            segundaFaceValida = lambda faces: facesDirParaEsq[1][0] != 0
+            segundaFaceValida = lambda faces: faces[1][0] != 0
             if (segundaFaceValida(facesDirParaEsq)) :
                 anguloServos[0] = seguirFace(0, facesDirParaEsq[1], image)
             else :
