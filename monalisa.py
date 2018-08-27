@@ -49,7 +49,8 @@ board = 0
 sonsRecentes = []
 tempoAntesDeRepetirSons = 0
 
-multiplicadorIntervalo = 1
+DEFAULT_MULTIPLICADOR_INTERVALO = 3
+multiplicadorIntervalo = DEFAULT_MULTIPLICADOR_INTERVALO
 
 ordemBuffer = 0
 posicaoRelativasBuffer = []
@@ -347,6 +348,7 @@ def modoAtualEstaExpirado() :
 
 def moverBaseadoNasFaces(faces, image) :
     global multiplicadorIntervalo
+    global DEFAULT_MULTIPLICADOR_INTERVALO
     facesParaIgnorar = []
     areaFace = lambda face : face[2]*face[3]
     facesDecrescente = np.asarray(sorted(faces, key=areaFace, reverse=True))
@@ -361,30 +363,30 @@ def moverBaseadoNasFaces(faces, image) :
 
     if numeroFaces == 0 :
         if time.time() - tempoUltimaDeteccao > 5 :
-            multiplicadorIntervalo = 1
+            multiplicadorIntervalo = DEFAULT_MULTIPLICADOR_INTERVALO
             (x, y, w, h) = (image.shape[1]/2, 0, 2, 0)
             anguloServos[0] = seguirFace(0, (x, y, w, h), image)
             anguloServos[1] = seguirFace(1, (x, y, w, h), image)
         elif time.time() - tempoUltimaDeteccao > 60 :
-            if randint(0, 1000) < 20 :
+            if randint(0, 1000 * multiplicadorIntervalo) < 20 :
                 if not somFoiTocadoRecente('semmovimento', 240) :
                     tocarSom('audio/semmovimento1.mp3')
         else :
-            if randint(0, 10000) < 4 :
+            if randint(0, 10000 * multiplicadorIntervalo) < 4 :
                 print('louco')
                 modoLouco()
             else :
                 anguloServos[0] = anguloAtualServos[0]
                 anguloServos[1] = anguloAtualServos[1]
     else :
-        multiplicadorIntervalo = 0.8
+        multiplicadorIntervalo = int(0.8 * DEFAULT_MULTIPLICADOR_INTERVALO)
         if not somDoTipoFoiTocadoRecente('ola', 30) and not somDoTipoFoiTocadoRecente('salve', 30) :
             somNum = randint(1,5)
             if somNum <= 3:
                 tocarSom('audio/ola{0}.mp3'.format(somNum))
             else :
                 tocarSom('audio/salve{0}.mp3'.format(somNum - 3))
-        if randint(0, 1000) < 5 :
+        if randint(0, 1000 * multiplicadorIntervalo) < 5 :
             if not somDoTipoFoiTocadoRecente('cantada', multiplicadorIntervalo*120) :
                 somNum = randint(1, 5)
                 #tocarSom('audio/cantada{0}.mp3'.format(somNum))
@@ -405,12 +407,12 @@ def moverBaseadoNasFaces(faces, image) :
             #muita gente
             anguloServos[0] = seguirFace(0, facesDecrescente[0], image)
             anguloServos[1] = seguirFace(1, facesDecrescente[0], image)
-            if randint(0, 100) < 75 :
+            if randint(0, 100 * multiplicadorIntervalo) < 75 :
                 if not somDoTipoFoiTocadoRecente('muitaspessoas') :
                     #75% de chance de dizer que está nervosa
                     somNum = randint(1,3)
                     tocarSom('audio/muitaspessoas{0}.mp3'.format(somNum))
-                    if randint(0, 100) < 10 :
+                    if randint(0, 100 * multiplicadorIntervalo) < 10 :
                         modoEsconderOlhos()
 
     aleatorio = randint(0, 2000 * multiplicadorIntervalo)
