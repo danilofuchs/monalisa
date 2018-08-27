@@ -2,3 +2,6 @@ output/
 .vscode/
 *.pyc
 *.save
+build/
+dist/
+*.spec
