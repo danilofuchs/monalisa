@@ -246,6 +246,15 @@ def desenharResultado(image, faces, anguloServos) :
             (x2,y2) = (int((x+w) * fatorAmpliacao[0]), int((y+h) * fatorAmpliacao[1]))
             cv2.rectangle(image,(x1,y1),(x2,y2),(255,255,0),2)
 
+    text ='aperte Q para fechar'
+    textPos = (10,460)
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    fontSize = 0.6
+    color = (255,255,255)
+    thickness = 1
+
+    cv2.putText(image, text, textPos, font, fontSize, color, thickness, cv2.LINE_AA)
+
     cv2.imshow('result', image)
 
     #cv2.imshow('result', )
