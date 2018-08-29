@@ -175,7 +175,10 @@ def receberDadosFacebook(response, *args, **kwargs) :
     if newLikeCount > likesFacebook :
         likesFacebook = newLikeCount
         random = randint(0, 3)
-        tocarSom('audio/like{0}.mp3'.format(random))
+        global start
+        if time.time() - start > 20 :
+            #Não toca na primeira iteração
+            tocarSom('audio/like{0}.mp3'.format(random))
 
 def tocarSom(nomeArquivo) :
     if not pygame.mixer.music.get_busy() and not somFoiTocadoRecente(nomeArquivo, tempoAntesDeRepetirSons) :
