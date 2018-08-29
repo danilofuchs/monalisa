@@ -1,0 +1,1 @@
+pyinstaller monalisa.py --add-data="./audio";"audio" --add-data="facial_recognition_model.xml";"." --noconfirm

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-
+from sys import exit
 ''' CROSSBOTS WINTER CHALLENGE 2018
 ''          MONALISA
 ''  DESC: Reconhece uma face e move olhos (servo)
@@ -17,6 +17,7 @@ import serial
 import pygame
 
 import json
+import gevent
 import grequests
 
 import argparse
