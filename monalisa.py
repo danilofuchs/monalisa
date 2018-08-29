@@ -16,6 +16,8 @@ import serial
 
 import pygame
 
+import json
+import grequests
 
 '''      MODOS DIFERENTES DE REAGIR                                         ''
 ''  0 - Seguir apenas 1 pessoa                                              ''
@@ -24,14 +26,6 @@ import pygame
 ''  3 - Esconder os olhos - Não seguir ninguém                              ''
 ''  4 - Louca                                                               '''
 
-modos = [
-    ('seguir1', 60),
-    ('seguir2maior', 30),
-    ('seguir2lado', 30),
-    ('esconder', 30),
-    ('louco', 30)
-]
-modoAtual = ['seguir1', time.time()]
 
 limiteTempo = 0
 anguloAtualServos = []
@@ -56,6 +50,13 @@ ordemBuffer = 0
 posicaoRelativasBuffer = []
 posicaoRelativaAtualServos = []
 
+# ID página crossbots
+PAGE_ID = "crossbotsutfpr" 
+# Token de acesso (Expira a cada 2 meses. Contatar administrador da página para liberar acesso)
+ACCESS_TOKEN = "EAAfs9OJXRZB8BAAyYCgELf2sOZC46zp7ZAoQ7dOcTzO4wLYQ6UVK8hmAMzAsZBCG2fEZAmHFKKkMHXlmO6ACjR1O5TowZAPZBqc187D38TjQKKiCkRmFBTehPYuwXgeZByMySH0s0qc3U0ZBRvRyQ5TGOB2DNzLMYUM25SAOmUPT2ZBgZDZD"
+tempoUltimosDadosFacebook = 0
+likesFacebook = 0
+
 def globals() :
     global limiteTempo
     limiteTempo = 20000
@@ -73,13 +74,14 @@ def globals() :
     global velocidadeMaximaServos
    # velocidadeMaximaServos = 40
     velocidadeMaximaServos = 30
-
+    
     servoPin1 = 8
     servoPin2 = 9
     servo1 = board.get_pin('d:{0}:s'.format(servoPin1))
     servo2 = board.get_pin('d:{0}:s'.format(servoPin2))
     global servos
     servos = [servo1, servo2]
+    
 
     global tempoUltimaDeteccao
     tempoUltimaDeteccao = 0
@@ -109,7 +111,7 @@ def globals() :
     posicaoRelativaAtualServos = [0,0]
 
 def initArduino() :
-
+    
     global board
     sucessoArduino = False
     for i in range (0, 10) :
@@ -125,7 +127,7 @@ def initArduino() :
     else :
         print('Erro ao conectar com o arduino!')
         exit()
-
+    
     
 def setAngulo(index, angulo):
     global servos
@@ -140,6 +142,27 @@ def addPosicaoRelativaBuffer(servoIndex, posicaoRelativa) :
     global posicaoRelativasBuffer
     posicaoRelativasBuffer[servoIndex] = np.roll(posicaoRelativasBuffer[servoIndex], 1)
     posicaoRelativasBuffer[servoIndex][0][0] = posicaoRelativa
+
+def requestDadosFacebook(page_id, access_token):
+    api_endpoint = "https://graph.facebook.com/v2.4/"
+    fb_graph_url = api_endpoint+page_id+"?fields=fan_count&access_token="+access_token
+    req = grequests.get(fb_graph_url, hooks=dict(response=receberDadosFacebook))
+    request = req.send()
+    global tempoUltimosDadosFacebook
+    tempoUltimosDadosFacebook = time.time()
+
+def receberDadosFacebook(response, *args, **kwargs) :
+    global likesFacebook
+    print('oi')
+    print(response.content)
+
+    page_data = json.loads(response.content)
+    newLikeCount = page_data['fan_count']
+    print("face:{0}, new:{1}".format(likesFacebook, newLikeCount))
+    if newLikeCount > likesFacebook :
+        likesFacebook = newLikeCount
+        random = randint(0, 3)
+        tocarSom('audio/like{0}.mp3'.format(random))
 
 def tocarSom(nomeArquivo) :
     if not pygame.mixer.music.get_busy() and not somFoiTocadoRecente(nomeArquivo, tempoAntesDeRepetirSons) :
@@ -469,6 +492,9 @@ while pygame.mixer.music.get_busy() :
     pass
 
 while time.time() - start < limiteTempo and capturaVideo.isOpened():
+    if (time.time() - tempoUltimosDadosFacebook > 20) :
+        requestDadosFacebook(PAGE_ID, ACCESS_TOKEN)
+        print(likesFacebook)
     ret, frame = capturaVideo.read()
     cv2.resize(frame, (640,480))
     temFacesNaImagem = True
