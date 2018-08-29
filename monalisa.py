@@ -19,6 +19,18 @@ import pygame
 import json
 import grequests
 
+import argparse
+parser = argparse.ArgumentParser(description='Reconhecimento de faces com movimento de olhos e fala.')
+parser.add_argument('--no-arduino', action='store_true',
+                   help='Desabilita a comunicação com o arduino e servos')
+parser.add_argument('--no-facebook', action='store_true',
+                   help='Desabilita a interação com likes na página')
+parser.add_argument('--no-geek', action='store_true',
+                   help='Desabilita as frases especiais da geek city')
+parser.add_argument('--processo', action='store_true',
+                   help='Habilita frases sobre o processo seletivo')
+args = parser.parse_args()
+
 '''      MODOS DIFERENTES DE REAGIR                                         ''
 ''  0 - Seguir apenas 1 pessoa                                              ''
 ''  1 - Seguir 2 pessoas cada uma em 1 olho (maior em 1, menor em outro)    ''
@@ -75,12 +87,14 @@ def globals() :
    # velocidadeMaximaServos = 40
     velocidadeMaximaServos = 30
     
-    servoPin1 = 8
-    servoPin2 = 9
-    servo1 = board.get_pin('d:{0}:s'.format(servoPin1))
-    servo2 = board.get_pin('d:{0}:s'.format(servoPin2))
-    global servos
-    servos = [servo1, servo2]
+    global args
+    if (not args.no_arduino):
+        servoPin1 = 8
+        servoPin2 = 9
+        servo1 = board.get_pin('d:{0}:s'.format(servoPin1))
+        servo2 = board.get_pin('d:{0}:s'.format(servoPin2))
+        global servos
+        servos = [servo1, servo2]
     
 
     global tempoUltimaDeteccao
@@ -111,22 +125,23 @@ def globals() :
     posicaoRelativaAtualServos = [0,0]
 
 def initArduino() :
-    
-    global board
-    sucessoArduino = False
-    for i in range (0, 10) :
-        try:
-            #board = Arduino('/dev/ttyUSB{0}'.format(i))
-            board = Arduino('COM{0}'.format(i))
-            sucessoArduino = True
-            break
-        except serial.serialutil.SerialException as e:
-            continue
-    if sucessoArduino :
-        print('Arduino conectado')
-    else :
-        print('Erro ao conectar com o arduino!')
-        exit()
+    global args
+    if (not args.no_arduino):
+        global board
+        sucessoArduino = False
+        for i in range (0, 10) :
+            try:
+                #board = Arduino('/dev/ttyUSB{0}'.format(i))
+                board = Arduino('COM{0}'.format(i))
+                sucessoArduino = True
+                break
+            except serial.serialutil.SerialException as e:
+                continue
+        if sucessoArduino :
+            print('Arduino conectado')
+        else :
+            print('Erro ao conectar com o arduino!')
+            exit()
     
     
 def setAngulo(index, angulo):
@@ -134,7 +149,9 @@ def setAngulo(index, angulo):
     global anguloAtualServos
     global tempoUltimoComandoServos
     angulo = int(angulo)
-    servos[index].write(angulo)
+    global args
+    if (not args.no_arduino):
+        servos[index].write(angulo)
     anguloAtualServos[index] = int(angulo)
     tempoUltimoComandoServos[index] = time.time()
     
@@ -153,12 +170,8 @@ def requestDadosFacebook(page_id, access_token):
 
 def receberDadosFacebook(response, *args, **kwargs) :
     global likesFacebook
-    print('oi')
-    print(response.content)
-
     page_data = json.loads(response.content)
     newLikeCount = page_data['fan_count']
-    print("face:{0}, new:{1}".format(likesFacebook, newLikeCount))
     if newLikeCount > likesFacebook :
         likesFacebook = newLikeCount
         random = randint(0, 3)
@@ -437,18 +450,23 @@ def moverBaseadoNasFaces(faces, image) :
                     tocarSom('audio/muitaspessoas{0}.mp3'.format(somNum))
                     if randint(0, 100 * multiplicadorIntervalo) < 10 :
                         modoEsconderOlhos()
-
+    global args
     aleatorio = randint(0, 2000 * multiplicadorIntervalo)
-    if aleatorio < 30 :
-        if aleatorio < 12 :
-            somNum = randint(2,11)
-            if (somNum <= 7):
-                tocarSom('audio/aleatorio{0}.mp3'.format(somNum))
-            else :
-                tocarSom('audio/processo{0}.mp3'.format(somNum-7))
-        elif aleatorio < 15 :
+    if aleatorio < 40 :
+        if aleatorio < 15 :
+            aleatorio2 = randint(0, 10)
+            if aleatorio2 < 5 :
+                somNum = randint(2,11)
+                if (somNum <= 7):
+                    tocarSom('audio/aleatorio{0}.mp3'.format(somNum))
+                elif args.processo:
+                    tocarSom('audio/processo{0}.mp3'.format(somNum-7))
+            elif not args.no_geek :
+                somNum = randint(1,8)
+                tocarSom('audio/AleatorioGeek{0}.mp3'.format(somNum))
+        elif aleatorio < 20 :
             tocarSom('audio/aleatorio1.mp3')
-        elif aleatorio < 24 :
+        elif aleatorio < 26 :
             if not somDoTipoFoiTocadoRecente('passa', 60 * multiplicadorIntervalo) :
                 somNum = randint(1,3)
                 tocarSom('audio/passa{0}.mp3'.format(somNum))
@@ -492,11 +510,12 @@ while pygame.mixer.music.get_busy() :
     pass
 
 while time.time() - start < limiteTempo and capturaVideo.isOpened():
-    if (time.time() - tempoUltimosDadosFacebook > 20) :
-        requestDadosFacebook(PAGE_ID, ACCESS_TOKEN)
-        print(likesFacebook)
+    if (not args.no_facebook) :
+        if (time.time() - tempoUltimosDadosFacebook > 20) :
+            requestDadosFacebook(PAGE_ID, ACCESS_TOKEN)
+            print('likes: {0}'.format(likesFacebook))
     ret, frame = capturaVideo.read()
-    cv2.resize(frame, (640,480))
+    cv2.resize(frame, (400,300))
     temFacesNaImagem = True
     try :
         faces = detectarFaces(frame, face_cascade)
