@@ -4,4 +4,3 @@ output/
 *.save
 build/
 dist/
-*.spec
