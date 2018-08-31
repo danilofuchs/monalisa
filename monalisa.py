@@ -30,6 +30,8 @@ parser.add_argument('--no-geek', action='store_true',
                    help='Desabilita as frases especiais da geek city')
 parser.add_argument('--processo', action='store_true',
                    help='Habilita frases sobre o processo seletivo')
+parser.add_argument('--camera-index', type=int, default=0,
+                   help='Selecione a câmera padrão de captura (default: 0). Utilizar se câmera não é ativada')
 args = parser.parse_args()
 
 '''      MODOS DIFERENTES DE REAGIR                                         ''
