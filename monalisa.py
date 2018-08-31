@@ -13,7 +13,7 @@ from random import randint
 
 from pyfirmata import Arduino, util
 import serial
-
+ 
 import pygame
 
 import json
@@ -59,8 +59,7 @@ tempoAntesDeRepetirSons = 0
 DEFAULT_MULTIPLICADOR_INTERVALO = 3
 multiplicadorIntervalo = DEFAULT_MULTIPLICADOR_INTERVALO
 
-ordemBuffer = 0
-posicaoRelativasBuffer = []
+ordemMedia = 0
 posicaoRelativaAtualServos = []
 
 # ID página crossbots
@@ -101,7 +100,7 @@ def globals() :
     global tempoUltimaDeteccao
     tempoUltimaDeteccao = 0
     global cameraIndex
-    cameraIndex = 0
+    cameraIndex = args.camera_index
     global resolucaoCaptura
     resolucaoCaptura = [400, 300]
     global capturaVideo
@@ -118,10 +117,8 @@ def globals() :
     global tempoAntesDeRepetirSons
     tempoAntesDeRepetirSons = 120
 
-    global posicaoRelativasBuffer
-    global ordemBuffer
-    ordemBuffer = 5
-    posicaoRelativasBuffer = [np.zeros((1, ordemBuffer)), np.zeros((1, ordemBuffer))]
+    global ordemMedia
+    ordemMedia = 5
     global posicaoRelativaAtualServos
     posicaoRelativaAtualServos = [0,0]
 
@@ -155,11 +152,6 @@ def setAngulo(index, angulo):
         servos[index].write(angulo)
     anguloAtualServos[index] = int(angulo)
     tempoUltimoComandoServos[index] = time.time()
-    
-def addPosicaoRelativaBuffer(servoIndex, posicaoRelativa) :
-    global posicaoRelativasBuffer
-    posicaoRelativasBuffer[servoIndex] = np.roll(posicaoRelativasBuffer[servoIndex], 1)
-    posicaoRelativasBuffer[servoIndex][0][0] = posicaoRelativa
 
 def requestDadosFacebook(page_id, access_token):
     api_endpoint = "https://graph.facebook.com/v2.4/"
@@ -287,13 +279,10 @@ def seguirFace(servoIndex, face, image) :
     posicaoMedia = x + (w/2)
     posicaoRelativaFoto = posicaoMedia / (image.shape[1] * 1.0)
 
-    addPosicaoRelativaBuffer(servoIndex, posicaoRelativaFoto)
-
-    global posicaoRelativasBuffer
     global posicaoRelativaAtualServos
-    global ordemBuffer
+    global ordemMedia
 
-    posicaoRelativaAtualServos[servoIndex] = posicaoRelativaAtualServos[servoIndex] * ((ordemBuffer-1)/ordemBuffer) + (posicaoRelativasBuffer[servoIndex][0][0]) / ordemBuffer
+    posicaoRelativaAtualServos[servoIndex] = posicaoRelativaAtualServos[servoIndex] * ((ordemMedia-1)/ordemMedia) + (posicaoRelativaFoto) / ordemMedia
     
     minAngulo = limitesAngulo[servoIndex][0]
     maxAngulo = limitesAngulo[servoIndex][1]
