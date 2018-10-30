@@ -34,6 +34,7 @@ parser.add_argument('--camera-index', type=int, default=0,
                    help='Selecione a câmera padrão de captura (default: 0). Utilizar se câmera não é ativada')
 args = parser.parse_args()
 
+from OpenCVRecognizer import OpenCVRecognizer
 '''      MODOS DIFERENTES DE REAGIR                                         ''
 ''  0 - Seguir apenas 1 pessoa                                              ''
 ''  1 - Seguir 2 pessoas cada uma em 1 olho (maior em 1, menor em outro)    ''
@@ -50,9 +51,13 @@ velocidadeMaximaServos = 0
 servos = []
 
 tempoUltimaDeteccao = 0
-resolucaoCaptura = ()
+resolucaoCaptura = (640, 360)
+resolucaoDeteccao = (512, 288)
+cascadeClassifierPath = "facial_recognition_model.xml"
+converterCinza = False
 capturaVideo = 0
 cameraIndex = 0
+
 board = 0
 
 sonsRecentes = []
@@ -70,6 +75,8 @@ PAGE_ID = "crossbotsutfpr"
 ACCESS_TOKEN = "EAAfs9OJXRZB8BAAyYCgELf2sOZC46zp7ZAoQ7dOcTzO4wLYQ6UVK8hmAMzAsZBCG2fEZAmHFKKkMHXlmO6ACjR1O5TowZAPZBqc187D38TjQKKiCkRmFBTehPYuwXgeZByMySH0s0qc3U0ZBRvRyQ5TGOB2DNzLMYUM25SAOmUPT2ZBgZDZD"
 tempoUltimosDadosFacebook = 0
 likesFacebook = 0
+
+openCVRecognizer = OpenCVRecognizer(cameraIndex=cameraIndex, resolucaoCaptura=resolucaoCaptura, resolucaoDeteccao=resolucaoDeteccao, cascadeClassifierPath=cascadeClassifierPath, converterCinza=converterCinza)
 
 def globals() :
     global limiteTempo
@@ -104,7 +111,7 @@ def globals() :
     global cameraIndex
     cameraIndex = args.camera_index
     global resolucaoCaptura
-    resolucaoCaptura = [400, 300]
+    resolucaoCaptura = [640, 360]
     global capturaVideo
     capturaVideo = cv2.VideoCapture(cameraIndex)
     capturaVideo.set(cv2.CAP_PROP_FRAME_WIDTH, resolucaoCaptura[0])
@@ -226,9 +233,9 @@ def detectarFaces(image, face_cascade) :
         raise LookupError('No face found')
 
 def desenharResultado(image, faces, anguloServos) :
-    fatorAmpliacao = (  640 / image.shape[1],
-                        480 / image.shape[0])
-    image = cv2.resize(image, (640,480))
+    fatorAmpliacao = (  1366 / image.shape[1],
+                        768 / image.shape[0])
+    image = cv2.resize(image, (1366,768))
 
     linhasServos = []
     j = 0
@@ -446,7 +453,7 @@ def moverBaseadoNasFaces(faces, image) :
         else :
             #muita gente
             anguloServos[0] = seguirFace(0, facesDecrescente[0], image)
-            anguloServos[1] = seguirFace(1, facesDecrescente[0], image)
+            anguloServos[1] = seguirFace(1, facesDecrescente[1], image)
             if randint(0, 100 * multiplicadorIntervalo) < 75 :
                 if not somDoTipoFoiTocadoRecente('muitaspessoas') :
                     #75% de chance de dizer que está nervosa
@@ -518,18 +525,20 @@ while time.time() - start < limiteTempo and capturaVideo.isOpened():
         if (time.time() - tempoUltimosDadosFacebook > 20) :
             requestDadosFacebook(PAGE_ID, ACCESS_TOKEN)
             print('likes: {0}'.format(likesFacebook))
-    ret, frame = capturaVideo.read()
-    cv2.resize(frame, (400,300))
+    #ret, frame = openCVRecognizer.snapshot()
+    #ret, frame = capturaVideo.read()
+    #cv2.resize(frame, (512,288))
     temFacesNaImagem = True
     try :
-        faces = detectarFaces(frame, face_cascade)
+        faces, ret, frame = openCVRecognizer.detectarFaces()
+        global tempoUltimaDeteccao
+        tempoUltimaDeteccao = time.time()
     except LookupError :
         faces = np.array([(0,0,0,0)])
         temFacesNaImagem = False
 
     angulosServos = moverBaseadoNasFaces(faces, frame)
-    if i % 1 == 0 :
-        desenharResultado(frame, faces, angulosServos)
+    desenharResultado(frame, faces, angulosServos)
 
     i = i + 1
     current = time.time()
