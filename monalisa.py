@@ -35,6 +35,7 @@ parser.add_argument('--camera-index', type=int, default=0,
 args = parser.parse_args()
 
 from OpenCVRecognizer import OpenCVRecognizer
+from GerenciadorSom import GerenciadorSom
 '''      MODOS DIFERENTES DE REAGIR                                         ''
 ''  0 - Seguir apenas 1 pessoa                                              ''
 ''  1 - Seguir 2 pessoas cada uma em 1 olho (maior em 1, menor em outro)    ''
@@ -60,9 +61,7 @@ cameraIndex = 0
 
 board = 0
 
-sonsRecentes = []
-tempoAntesDeRepetirSons = 0
-
+tempoAntesDeRepetirSons = 120
 DEFAULT_MULTIPLICADOR_INTERVALO = 3
 multiplicadorIntervalo = DEFAULT_MULTIPLICADOR_INTERVALO
 
@@ -77,6 +76,7 @@ tempoUltimosDadosFacebook = 0
 likesFacebook = 0
 
 openCVRecognizer = OpenCVRecognizer(cameraIndex=cameraIndex, resolucaoCaptura=resolucaoCaptura, resolucaoDeteccao=resolucaoDeteccao, cascadeClassifierPath=cascadeClassifierPath, converterCinza=converterCinza)
+som = GerenciadorSom(tempoAntesDeRepetirSons)
 
 def globals() :
     global limiteTempo
@@ -104,32 +104,14 @@ def globals() :
         servo2 = board.get_pin('d:{0}:s'.format(servoPin2))
         global servos
         servos = [servo1, servo2]
-    
-
-    global tempoUltimaDeteccao
-    tempoUltimaDeteccao = 0
-    global cameraIndex
-    cameraIndex = args.camera_index
-    global resolucaoCaptura
-    resolucaoCaptura = [640, 360]
-    global capturaVideo
-    capturaVideo = cv2.VideoCapture(cameraIndex)
-    capturaVideo.set(cv2.CAP_PROP_FRAME_WIDTH, resolucaoCaptura[0])
-    capturaVideo.set(cv2.CAP_PROP_FRAME_HEIGHT, resolucaoCaptura[1])
-
-    #Load a cascade file for detecting faces
-    global face_cascade
-    face_cascade = cv2.CascadeClassifier('facial_recognition_model.xml')
-
-    global sonsRecentes
-    sonsRecentes = []
-    global tempoAntesDeRepetirSons
-    tempoAntesDeRepetirSons = 120
 
     global ordemMedia
     ordemMedia = 5
     global posicaoRelativaAtualServos
     posicaoRelativaAtualServos = [0,0]
+
+def somInicial() :
+    som.tocarSom('audio/ola1.mp3')
 
 def initArduino() :
     global args
@@ -149,7 +131,6 @@ def initArduino() :
         else :
             print('Erro ao conectar com o arduino!')
             exit()
-    
     
 def setAngulo(index, angulo):
     global servos
@@ -180,57 +161,7 @@ def receberDadosFacebook(response, *args, **kwargs) :
         global start
         if time.time() - start > 20 :
             #Não toca na primeira iteração
-            tocarSom('audio/like{0}.mp3'.format(random))
-
-def tocarSom(nomeArquivo) :
-    if not pygame.mixer.music.get_busy() and not somFoiTocadoRecente(nomeArquivo, tempoAntesDeRepetirSons) :
-        pygame.mixer.music.load(nomeArquivo)
-        pygame.mixer.music.play()
-        sonsRecentes.append((nomeArquivo, time.time()))
-        print('Tocando: {0}'.format(nomeArquivo))
-
-def somFoiTocadoRecente(nomeArquivo, tempoMaximo=120) :
-    foiTocado = False
-    for (som, tempo) in sonsRecentes :
-        if tempo > (time.time() - tempoMaximo) :
-            if som == nomeArquivo :
-                foiTocado = True
-                break
-    return foiTocado
-
-def somDoTipoFoiTocadoRecente(prefixoSom, tempoMaximo=120) :
-    foiTocado = False
-    for i in range(1, 10) :
-        if somFoiTocadoRecente('audio/{0}{1}.mp3'.format(prefixoSom, i), tempoMaximo) :
-            foiTocado = True
-            break
-    return foiTocado
-
-def removerSonsAntigos() :
-    for (som, tempo) in sonsRecentes :
-        if time.time() - tempo > 120 :
-            sonsRecentes.remove((som, tempo))
-
-def somInicial() :
-    tocarSom('audio/ola1.mp3')
-
-def detectarFaces(image, face_cascade) :
-
-    #Converte imagem para preto/branco (3x mais rapido)
-    #gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    gray = image
-    #Encontra faces pelo modelo treinado
-    faces = face_cascade.detectMultiScale(gray, 1.1, 5)
-
-    #Encontrou faces?
-    if len(faces) > 0 : 
-        #if not pygame.mixer.music.get_busy():
-        #    tocarSom('audio/oi_gato.mp3')
-        global tempoUltimaDeteccao
-        tempoUltimaDeteccao = time.time()
-        return faces
-    else :
-        raise LookupError('No face found')
+            som.tocarSom('audio/like{0}.mp3'.format(random))
 
 def desenharResultado(image, faces, anguloServos) :
     fatorAmpliacao = (  1366 / image.shape[1],
@@ -318,7 +249,7 @@ def anguloParaPosicaoRelativa(angulo, servoIndex) :
 
 def modoLouco() :
     global limitesAngulo
-    tocarSom('audio/grito1.mp3')
+    som.tocarSom('audio/grito1.mp3')
     amplitudeServo0 = limitesAngulo[0][1] - limitesAngulo[0][0]
     amplitudeServo1 = limitesAngulo[1][1] - limitesAngulo[1][0]
 
@@ -362,6 +293,7 @@ def modoLouco() :
         setAngulo(1, (i * (1/30) * amplitudeServo1 + limitesAngulo[1][0]))
         time.sleep(0.01)
 
+'''
 def modoSeguirDuas(faces, image) :
     a = 0
 
@@ -392,6 +324,7 @@ def modoAtualEstaExpirado() :
             if time.time() - tempoAtual > tempoMin :
                 valido = False
     return valido
+'''
 
 def moverBaseadoNasFaces(faces, image) :
     global multiplicadorIntervalo
@@ -416,8 +349,8 @@ def moverBaseadoNasFaces(faces, image) :
             anguloServos[1] = seguirFace(1, (x, y, w, h), image)
         elif time.time() - tempoUltimaDeteccao > 60 :
             if randint(0, 1000 * multiplicadorIntervalo) < 20 :
-                if not somFoiTocadoRecente('semmovimento', 240) :
-                    tocarSom('audio/semmovimento1.mp3')
+                if not som.somFoiTocadoRecente('semmovimento', 240) :
+                    som.tocarSom('audio/semmovimento1.mp3')
         else :
             if randint(0, 10000 * multiplicadorIntervalo) < 4 :
                 print('louco')
@@ -427,14 +360,14 @@ def moverBaseadoNasFaces(faces, image) :
                 anguloServos[1] = anguloAtualServos[1]
     else :
         multiplicadorIntervalo = int(0.8 * DEFAULT_MULTIPLICADOR_INTERVALO)
-        if not somDoTipoFoiTocadoRecente('ola', 30) and not somDoTipoFoiTocadoRecente('salve', 30) :
+        if not som.somDoTipoFoiTocadoRecente('ola', 30) and not somDoTipoFoiTocadoRecente('salve', 30) :
             somNum = randint(1,5)
             if somNum <= 3:
-                tocarSom('audio/ola{0}.mp3'.format(somNum))
+                som.tocarSom('audio/ola{0}.mp3'.format(somNum))
             else :
-                tocarSom('audio/salve{0}.mp3'.format(somNum - 3))
+                som.tocarSom('audio/salve{0}.mp3'.format(somNum - 3))
         if randint(0, 1000 * multiplicadorIntervalo) < 5 :
-            if not somDoTipoFoiTocadoRecente('cantada', multiplicadorIntervalo*120) :
+            if not som.somDoTipoFoiTocadoRecente('cantada', multiplicadorIntervalo*120) :
                 somNum = randint(1, 5)
                 #tocarSom('audio/cantada{0}.mp3'.format(somNum))
         if numeroFaces == 1 :
@@ -455,10 +388,10 @@ def moverBaseadoNasFaces(faces, image) :
             anguloServos[0] = seguirFace(0, facesDecrescente[0], image)
             anguloServos[1] = seguirFace(1, facesDecrescente[1], image)
             if randint(0, 100 * multiplicadorIntervalo) < 75 :
-                if not somDoTipoFoiTocadoRecente('muitaspessoas') :
+                if not som.somDoTipoFoiTocadoRecente('muitaspessoas') :
                     #75% de chance de dizer que está nervosa
                     somNum = randint(1,3)
-                    tocarSom('audio/muitaspessoas{0}.mp3'.format(somNum))
+                    som.tocarSom('audio/muitaspessoas{0}.mp3'.format(somNum))
                     if randint(0, 100 * multiplicadorIntervalo) < 10 :
                         modoEsconderOlhos()
     global args
@@ -469,22 +402,22 @@ def moverBaseadoNasFaces(faces, image) :
             if aleatorio2 < 5 :
                 somNum = randint(2,11)
                 if (somNum <= 7):
-                    tocarSom('audio/aleatorio{0}.mp3'.format(somNum))
+                    som.tocarSom('audio/aleatorio{0}.mp3'.format(somNum))
                 elif args.processo:
-                    tocarSom('audio/processo{0}.mp3'.format(somNum-7))
+                    som.tocarSom('audio/processo{0}.mp3'.format(somNum-7))
             elif not args.no_geek :
                 somNum = randint(1,8)
-                tocarSom('audio/AleatorioGeek{0}.mp3'.format(somNum))
+                som.tocarSom('audio/AleatorioGeek{0}.mp3'.format(somNum))
         elif aleatorio < 20 :
-            tocarSom('audio/aleatorio1.mp3')
+            som.tocarSom('audio/aleatorio1.mp3')
         elif aleatorio < 26 :
-            if not somDoTipoFoiTocadoRecente('passa', 60 * multiplicadorIntervalo) :
+            if not som.somDoTipoFoiTocadoRecente('passa', 60 * multiplicadorIntervalo) :
                 somNum = randint(1,3)
-                tocarSom('audio/passa{0}.mp3'.format(somNum))
+                som.tocarSom('audio/passa{0}.mp3'.format(somNum))
         else :
-            if not somDoTipoFoiTocadoRecente('foto', 60 * multiplicadorIntervalo) :
+            if not som.somDoTipoFoiTocadoRecente('foto', 60 * multiplicadorIntervalo) :
                 somNum = randint(1,5)
-                tocarSom('audio/foto{0}.mp3'.format(somNum))
+                som.tocarSom('audio/foto{0}.mp3'.format(somNum))
 
     return anguloServos
 
@@ -503,9 +436,7 @@ def movimentoInicial() :
 
 ''' INICIO '''
 
-cv2.setNumThreads(4)
-pygame.init()
-pygame.mixer.init()
+
 initArduino()
 globals()
 
@@ -515,23 +446,18 @@ movimentoInicial()
 start = time.time()
 i = 0
 
-
-
-while pygame.mixer.music.get_busy() :
+while som.somTocandoAgora() :
     pass
 
-while time.time() - start < limiteTempo and capturaVideo.isOpened():
+while time.time() - start < limiteTempo and openCVRecognizer.isOpened():
     if (not args.no_facebook) :
         if (time.time() - tempoUltimosDadosFacebook > 20) :
             requestDadosFacebook(PAGE_ID, ACCESS_TOKEN)
             print('likes: {0}'.format(likesFacebook))
-    #ret, frame = openCVRecognizer.snapshot()
-    #ret, frame = capturaVideo.read()
-    #cv2.resize(frame, (512,288))
+
     temFacesNaImagem = True
     try :
         faces, ret, frame = openCVRecognizer.detectarFaces()
-        global tempoUltimaDeteccao
         tempoUltimaDeteccao = time.time()
     except LookupError :
         faces = np.array([(0,0,0,0)])

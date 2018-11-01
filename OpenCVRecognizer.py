@@ -11,6 +11,7 @@ class OpenCVRecognizer:
     converterCinza: bool = True
 
     def __init__(self, cameraIndex: int, resolucaoCaptura: (int, int), resolucaoDeteccao: (int, int), cascadeClassifierPath: str, converterCinza: bool):
+        cv2.setNumThreads(4)
         self.cameraIndex = cameraIndex
         self.capturaVideo = cv2.VideoCapture(cameraIndex)
         self.resolucaoCaptura = resolucaoCaptura
@@ -29,12 +30,13 @@ class OpenCVRecognizer:
 
     def detectarFaces(self):
         ret, image = self.snapshot()
-        cv2.resize(image, self.resolucaoDeteccao)
+        frame = image
+        cv2.resize(frame, self.resolucaoDeteccao)
         if (self.converterCinza):
             # Converte imagem para preto/branco (3x mais rapido)
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         # Encontra faces pelo modelo treinado
-        faces = self.faceCascade.detectMultiScale(image, 1.1, 5)
+        faces = self.faceCascade.detectMultiScale(frame, 1.1, 5)
 
         # Encontrou faces?
         if len(faces) > 0:
@@ -42,7 +44,8 @@ class OpenCVRecognizer:
             #    tocarSom('audio/oi_gato.mp3')
             return faces, ret, image
         else:
-            raise LookupError('No face found')
+            return np.array([(0,0,0,0)]), ret, image
+            # raise LookupError('No face found')
 
     def release(self):
         self.capturaVideo.release()
