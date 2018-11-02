@@ -36,6 +36,7 @@ args = parser.parse_args()
 
 from OpenCVRecognizer import OpenCVRecognizer
 from GerenciadorSom import GerenciadorSom
+from GerenciadorFacebook import GerenciadorFacebook
 '''      MODOS DIFERENTES DE REAGIR                                         ''
 ''  0 - Seguir apenas 1 pessoa                                              ''
 ''  1 - Seguir 2 pessoas cada uma em 1 olho (maior em 1, menor em outro)    ''
@@ -56,7 +57,6 @@ resolucaoCaptura = (640, 360)
 resolucaoDeteccao = (512, 288)
 cascadeClassifierPath = "facial_recognition_model.xml"
 converterCinza = False
-capturaVideo = 0
 cameraIndex = 0
 
 board = 0
@@ -71,12 +71,9 @@ posicaoRelativaAtualServos = []
 # ID página crossbots
 PAGE_ID = "crossbotsutfpr" 
 # Token de acesso (Expira a cada 2 meses. Contatar administrador da página para liberar acesso)
-ACCESS_TOKEN = "EAAfs9OJXRZB8BAAyYCgELf2sOZC46zp7ZAoQ7dOcTzO4wLYQ6UVK8hmAMzAsZBCG2fEZAmHFKKkMHXlmO6ACjR1O5TowZAPZBqc187D38TjQKKiCkRmFBTehPYuwXgeZByMySH0s0qc3U0ZBRvRyQ5TGOB2DNzLMYUM25SAOmUPT2ZBgZDZD"
-tempoUltimosDadosFacebook = 0
-likesFacebook = 0
-
-openCVRecognizer = OpenCVRecognizer(cameraIndex=cameraIndex, resolucaoCaptura=resolucaoCaptura, resolucaoDeteccao=resolucaoDeteccao, cascadeClassifierPath=cascadeClassifierPath, converterCinza=converterCinza)
-som = GerenciadorSom(tempoAntesDeRepetirSons)
+# Atualizado em 02/11/18
+ACCESS_TOKEN = "EAAfs9OJXRZB8BAFP1dh5iFgWl2KWUDUSjiaA2FCA3shVOMNiVmUHaZCiuy29WOKaU2wmz6C6u1qreZARSw5cuklmp5kwzROCnOVhnDLo5ZB4T94OstYT09xPLaBqbBOwZBIzKCfvo7LYwoPTxGWpkzQA2ehSd4kGaoZAxZAPhZAbBQZDZD"
+tempoEntreChamadasAPI = 20
 
 def globals() :
     global limiteTempo
@@ -143,23 +140,14 @@ def setAngulo(index, angulo):
     anguloAtualServos[index] = int(angulo)
     tempoUltimoComandoServos[index] = time.time()
 
-def requestDadosFacebook(page_id, access_token):
-    api_endpoint = "https://graph.facebook.com/v2.4/"
-    fb_graph_url = api_endpoint+page_id+"?fields=fan_count&access_token="+access_token
-    req = grequests.get(fb_graph_url, hooks=dict(response=receberDadosFacebook))
-    request = req.send()
-    global tempoUltimosDadosFacebook
-    tempoUltimosDadosFacebook = time.time()
-
-def receberDadosFacebook(response, *args, **kwargs) :
-    global likesFacebook
-    page_data = json.loads(response.content)
-    newLikeCount = page_data['fan_count']
-    if newLikeCount > likesFacebook :
-        likesFacebook = newLikeCount
-        random = randint(0, 3)
+def checarLikesFacebook() :
+    novoLike, likeCount = facebook.getLikeCount()
+    print('likes: {0}'.format(likeCount))
+    if (novoLike) :
+        print("novo like")
+        random = randint(1, 3)
         global start
-        if time.time() - start > 20 :
+        if time.time() - start > tempoEntreChamadasAPI :
             #Não toca na primeira iteração
             som.tocarSom('audio/like{0}.mp3'.format(random))
 
@@ -246,6 +234,16 @@ def anguloParaPosicaoRelativa(angulo, servoIndex) :
     amplitudeServo = limitesAngulo[servoIndex][1] - limitesAngulo[servoIndex][0]
     posicaoRelativa = (- angulo + maxAngulo) / amplitudeServo
     return posicaoRelativa
+
+def modoEsconderOlhos() :
+    global limitesAngulo
+
+    amplitudeServo0 = limitesAngulo[0][1] - limitesAngulo[0][0]
+    amplitudeServo1 = limitesAngulo[1][1] - limitesAngulo[1][0]
+    for i in range(40, -10, -1) :
+        setAngulo(0, ((30-i) * (1/30) * amplitudeServo0 + limitesAngulo[0][0]))
+        setAngulo(1, (i * (1/30) * amplitudeServo1 + limitesAngulo[1][0]))
+        time.sleep(0.007)
 
 def modoLouco() :
     global limitesAngulo
@@ -360,7 +358,7 @@ def moverBaseadoNasFaces(faces, image) :
                 anguloServos[1] = anguloAtualServos[1]
     else :
         multiplicadorIntervalo = int(0.8 * DEFAULT_MULTIPLICADOR_INTERVALO)
-        if not som.somDoTipoFoiTocadoRecente('ola', 30) and not somDoTipoFoiTocadoRecente('salve', 30) :
+        if not som.somDoTipoFoiTocadoRecente('ola', 30) and not som.somDoTipoFoiTocadoRecente('salve', 30) :
             somNum = randint(1,5)
             if somNum <= 3:
                 som.tocarSom('audio/ola{0}.mp3'.format(somNum))
@@ -436,6 +434,10 @@ def movimentoInicial() :
 
 ''' INICIO '''
 
+openCVRecognizer = OpenCVRecognizer(cameraIndex=cameraIndex, resolucaoCaptura=resolucaoCaptura, resolucaoDeteccao=resolucaoDeteccao, cascadeClassifierPath=cascadeClassifierPath, converterCinza=converterCinza)
+som = GerenciadorSom(tempoAntesDeRepetirSons)
+if (not args.no_facebook) :
+    facebook = GerenciadorFacebook(PAGE_ID, ACCESS_TOKEN)
 
 initArduino()
 globals()
@@ -451,9 +453,11 @@ while som.somTocandoAgora() :
 
 while time.time() - start < limiteTempo and openCVRecognizer.isOpened():
     if (not args.no_facebook) :
-        if (time.time() - tempoUltimosDadosFacebook > 20) :
-            requestDadosFacebook(PAGE_ID, ACCESS_TOKEN)
-            print('likes: {0}'.format(likesFacebook))
+        checarLikesFacebook()
+        print(time.time() - facebook.tempoUltimaVerificacao)
+        if (time.time() - facebook.tempoUltimaVerificacao > tempoEntreChamadasAPI) :
+            facebook.requestDadosFacebook()
+            #print('likes: {0}'.format(likesFacebook))
 
     temFacesNaImagem = True
     try :
