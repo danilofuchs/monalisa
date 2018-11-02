@@ -36,7 +36,8 @@ class OpenCVRecognizer:
             # Converte imagem para preto/branco (3x mais rapido)
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         # Encontra faces pelo modelo treinado
-        faces = self.faceCascade.detectMultiScale(frame, 1.1, 5)
+        faces: [(int, int, int, int)] = self.faceCascade.detectMultiScale(
+            frame, 1.1, 5)
 
         # Encontrou faces?
         if len(faces) > 0:
@@ -44,7 +45,7 @@ class OpenCVRecognizer:
             #    tocarSom('audio/oi_gato.mp3')
             return faces, ret, image
         else:
-            return np.array([(0,0,0,0)]), ret, image
+            return np.array([(0, 0, 0, 0)]), ret, image
             # raise LookupError('No face found')
 
     def release(self):
