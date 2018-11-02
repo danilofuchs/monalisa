@@ -37,7 +37,7 @@ class GerenciadorSom:
 
     def removerSonsAntigos(self):
         for (som, tempo) in self.sonsRecentes:
-            if time.time() - tempo > defaultTempoMaximo * 5:
+            if time.time() - tempo > self.defaultTempoMaximo * 5:
                 self.sonsRecentes.remove((som, tempo))
 
     def somTocandoAgora(self):
