@@ -21,14 +21,14 @@ class GerenciadorFacebook:
             "?fields=fan_count&access_token="+self.accessToken
 
     def requestDadosFacebook(self):
-        print("Mandando requisição")
+        #print("Mandando requisição")
         req = grequests.get(self.fbGraphUrl, hooks=dict(
             response=self.receberDadosFacebook))
         request = req.send()
         self.tempoUltimaVerificacao = time.time()
 
     def receberDadosFacebook(self, response, *args, **kwargs):
-        print("Recebido")
+        # print("Recebido")
         pageData = json.loads(response.content)
         newLikeCount = pageData['fan_count']
         print(newLikeCount)
@@ -46,13 +46,6 @@ class GerenciadorFacebook:
                 self.novoLike = False
                 self.checked = False
             self.likes = newLikeCount
-            '''
-            random = randint(0, 3)
-            global start
-            if time.time() - start > 20 :
-                #Não toca na primeira iteração
-                som.tocarSom('audio/like{0}.mp3'.format(random))
-            '''
 
     def getLikeCount(self) -> (bool, int):
         self.checked = True

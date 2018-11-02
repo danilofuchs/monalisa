@@ -142,9 +142,8 @@ def setAngulo(index, angulo):
 
 def checarLikesFacebook() :
     novoLike, likeCount = facebook.getLikeCount()
-    print('likes: {0}'.format(likeCount))
     if (novoLike) :
-        print("novo like")
+        print('likes: {0}'.format(likeCount))
         random = randint(1, 3)
         global start
         if time.time() - start > tempoEntreChamadasAPI :
@@ -474,6 +473,5 @@ while time.time() - start < limiteTempo and openCVRecognizer.isOpened():
     current = time.time()
     print('Processed {0} frames in {1:.2f}s. Avg {2:.2f}fps\r'.format(i, (current-start), i/(current-start), end='\r'))
     
-capturaVideo.release()
 end = time.time()
 print('Elapsed time: ' + str(end-start) + 's')
